@@ -1140,21 +1140,24 @@ function renderPhone(di){
 }
 async function startNav(){
   if(isNav)return;isNav=true;navSt=0;
-  const steps=NAVS[curDrv];
   document.getElementById('dmWrap').classList.add('show');
   document.getElementById('nsp').classList.add('show');
-  const btn=document.getElementById('ngBtn');btn.textContent='🧭 Navigating...';btn.style.background='#1A9E8F';btn.onclick=null;
+  const btn=document.getElementById('ngBtn');btn.textContent='🧭 Loading route...';btn.style.background='#1A9E8F';btn.onclick=null;
+  document.getElementById('nsList').innerHTML='<div style="color:var(--muted);font-size:11px;padding:12px;">Getting directions...</div>';
+  await initDrvMap();
+  // Steps are now set by initDrvMap from real Mapbox data — navSteps is populated there
+  if(!window.navSteps||window.navSteps.length===0){
+    // Fallback to hardcoded if Mapbox steps failed
+    window.navSteps=NAVS[curDrv]||NAVS[0];
+  }
+  const steps=window.navSteps;
   document.getElementById('nsList').innerHTML=steps.map((s,i)=>`<div class="ns-r ${i===0?'cur':''}" id="ns-${i}"><div class="ns-ic">${s.ic}</div><div>${s.tx} <span style="color:var(--gold)">${s.d==='Destination'?'🏁':s.d}</span></div></div>`).join('');
   refreshNav(steps);
-  await initDrvMap();
   navIv=setInterval(()=>{
     document.getElementById(`ns-${navSt}`)?.classList.remove('cur');
     document.getElementById(`ns-${navSt}`)?.classList.add('ds');
     navSt++;
-    if(navSt>=steps.length){
-      clearInterval(navIv);navIv=null;
-      return;
-    }
+    if(navSt>=steps.length){clearInterval(navIv);navIv=null;return;}
     document.getElementById(`ns-${navSt}`)?.classList.add('cur');
     refreshNav(steps);
   },8000);
@@ -1163,40 +1166,49 @@ function refreshNav(steps){const s=steps[Math.min(navSt,steps.length-1)];documen
 function showArrived(){document.getElementById('arrBtn').style.display='block';document.getElementById('tbAr').textContent='📍';document.getElementById('tbIn').textContent='You have arrived!';document.getElementById('tbDi').textContent='🏁 Destination reached';document.getElementById('mbSpd').textContent='0';}
 async function arrived(){
   const ss=STOPS[curDrv],ti=ss.findIndex(s=>s.s==='transit'),addr=ti>=0?ss[ti].a:'the destination';
-  if(confirm(`📍 Arrived at:\n${addr}\n\nMark as DELIVERED?`)){
-    // Save to Supabase first
-    try{
-      if(ti>=0&&ss[ti].dbId){
-        await fetch(`${SUPABASE_URL}/rest/v1/stops?id=eq.${ss[ti].dbId}`,{
-          method:'PATCH',
-          headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-          body:JSON.stringify({status:'done'})
-        });
-      }
-      const ni=ss.findIndex((s,i)=>i>ti&&s.s==='pending');
-      if(ni>=0&&ss[ni].dbId){
-        await fetch(`${SUPABASE_URL}/rest/v1/stops?id=eq.${ss[ni].dbId}`,{
-          method:'PATCH',
-          headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-          body:JSON.stringify({status:'transit'})
-        });
-      }
-    }catch(e){console.log('Supabase update error:',e);}
-    // Update local state after Supabase
-    if(ti>=0){ss[ti].s='done';DRV[curDrv].done++;}
-    const ni=ss.findIndex((s,i)=>i>ti&&s.s==='pending');
-    if(ni>=0)ss[ni].s='transit';
-    if(mgrDriverMarkers[curDrv]&&lastDeliveredLng){mgrDriverMarkers[curDrv].setLngLat(lastDeliveredLng);}
-    const allDone=ss.every(s=>s.s==='done'||s.a.includes('Return'));
-    if(allDone)DRV[curDrv].status='completed';
-    stopNav();
-    renderPhone(curDrv);
-    renderDrvCards();
-    renderStopSecs();
+  if(!confirm(`📍 Arrived at:\n${addr}\n\nMark as DELIVERED?`))return;
+  // Update local state immediately
+  if(ti>=0){ss[ti].s='done';DRV[curDrv].done++;}
+  const ni=ss.findIndex((s,i)=>i>ti&&s.s==='pending');
+  if(ni>=0)ss[ni].s='transit';
+  if(mgrDriverMarkers[curDrv]&&lastDeliveredLng){mgrDriverMarkers[curDrv].setLngLat(lastDeliveredLng);}
+  const allDone=ss.every(s=>s.s==='done'||s.a.includes('Return'));
+  if(allDone)DRV[curDrv].status='completed';
+  stopNav();
+  renderPhone(curDrv);
+  renderDrvCards();
+  renderStopSecs();
+  // Auto start nav to next stop
+  if(ni>=0&&!allDone){
+    showBanner('✅ Delivered! Starting next stop...','52,211,153');
+    setTimeout(()=>startNav(),1200);
+  } else if(allDone){
+    showBanner('🎉 All stops completed!','232,184,75');
   }
+  // Save to Supabase in background
+  try{
+    if(ti>=0&&ss[ti].dbId){
+      await fetch(`${SUPABASE_URL}/rest/v1/stops?id=eq.${ss[ti].dbId}`,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({status:'done'})});
+    }
+    if(ni>=0&&ss[ni].dbId){
+      await fetch(`${SUPABASE_URL}/rest/v1/stops?id=eq.${ss[ni].dbId}`,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({status:'transit'})});
+    }
+  }catch(e){console.log('Supabase update error:',e);}
 }
-function stopNav(){if(navIv){clearInterval(navIv);navIv=null;}if(dRaf){cancelAnimationFrame(dRaf);dRaf=null;}isNav=false;navSt=0;document.getElementById('dmWrap').classList.remove('show');document.getElementById('nsp').classList.remove('show');document.getElementById('arrBtn').style.display='none';const btn=document.getElementById('ngBtn');btn.textContent='🗺️ Start Navigation';btn.style.background='';btn.onclick=startNav;}
-// ── AI ASSEMBLY ESTIMATOR ──
+function stopNav(){
+  if(navIv){clearInterval(navIv);navIv=null;}
+  if(navIvMap){clearInterval(navIvMap);navIvMap=null;}
+  if(drvMap){drvMap.remove();drvMap=null;drvMarker=null;}
+  isNav=false;navSt=0;
+  document.getElementById('dmWrap').classList.remove('show');
+  document.getElementById('nsp').classList.remove('show');
+  document.getElementById('arrBtn').style.display='none';
+  const btn=document.getElementById('ngBtn');
+  btn.textContent='🗺️ Start Navigation';
+  btn.style.background='';
+  btn.onclick=startNav;
+}
+function switchDrv(v){curDrv=parseInt(v);stopNav();lastDeliveredLng=null;renderPhone(curDrv);}
 const FURNITURE_DATA={
   sofa_2:    {name:'2-Seater Sofa',    time:25, people:2, note:'Attach legs, connect back cushions, fit covers. Straightforward assembly.'},
   sofa_3:    {name:'3-Seater Sofa',    time:35, people:2, note:'Attach legs, connect back frame, fit seat and back cushions.'},
@@ -1299,6 +1311,17 @@ async function initDrvMap(){
         const etaTime=new Date(Date.now()+data.routes[0].duration*1000);
         document.getElementById('mbEta').textContent=etaTime.toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit'});
         document.getElementById('mbDst').textContent=distKm+'km';
+        // Extract real turn-by-turn steps
+        const maneuverIcons={'turn-left':'←','turn-right':'→','turn-slight-left':'↖','turn-slight-right':'↗','turn-sharp-left':'⬅','turn-sharp-right':'➡','straight':'↑','roundabout':'🔄','arrive':'📍','depart':'↑','merge':'↗','fork':'↗','off ramp':'↘','on ramp':'↗'};
+        window.navSteps=(data.routes[0].legs||[]).flatMap(leg=>(leg.steps||[]).map(step=>{
+          const maneuver=step.maneuver||{};
+          const type=maneuver.type||'straight';
+          const mod=maneuver.modifier||'';
+          const key=mod?`${type}-${mod}`:type;
+          const ic=maneuverIcons[key]||maneuverIcons[type]||'↑';
+          const dist=step.distance>1000?(step.distance/1000).toFixed(1)+'km':Math.round(step.distance)+'m';
+          return{ic,tx:step.name||maneuver.instruction||'Continue',d:dist==='0m'?'Destination':dist};
+        }));
         drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
         drvMap.addLayer({id:'route-glow',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'rgba(45,212,191,0.25)','line-width':12}});
         drvMap.addLayer({id:'route-line',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#2DD4BF','line-width':4}});

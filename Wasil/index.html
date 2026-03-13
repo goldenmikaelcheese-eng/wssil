@@ -1163,36 +1163,49 @@ function refreshNav(steps){const s=steps[Math.min(navSt,steps.length-1)];documen
 function showArrived(){document.getElementById('arrBtn').style.display='block';document.getElementById('tbAr').textContent='📍';document.getElementById('tbIn').textContent='You have arrived!';document.getElementById('tbDi').textContent='🏁 Destination reached';document.getElementById('mbSpd').textContent='0';}
 async function arrived(){
   const ss=STOPS[curDrv],ti=ss.findIndex(s=>s.s==='transit'),addr=ti>=0?ss[ti].a:'the destination';
-  if(confirm(`📍 Arrived at:\n${addr}\n\nMark as DELIVERED?`)){
-    // Update local state immediately
-    if(ti>=0){ss[ti].s='done';DRV[curDrv].done++;}
-    const ni=ss.findIndex(s=>s.s==='pending');
-    if(ni>=0)ss[ni].s='transit';
-    if(mgrDriverMarkers[curDrv]&&lastDeliveredLng){mgrDriverMarkers[curDrv].setLngLat(lastDeliveredLng);}
-    const allDone=ss.every(s=>s.s==='done'||s.a.includes('Return'));
-    if(allDone)DRV[curDrv].status='completed';
-    // Save to Supabase in background
-    try{
-      if(ti>=0&&ss[ti].dbId){
-        await fetch(`${SUPABASE_URL}/rest/v1/stops?id=eq.${ss[ti].dbId}`,{
-          method:'PATCH',
-          headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-          body:JSON.stringify({status:'done'})
-        });
-      }
-      if(ni>=0&&ss[ni].dbId){
-        await fetch(`${SUPABASE_URL}/rest/v1/stops?id=eq.${ss[ni].dbId}`,{
-          method:'PATCH',
-          headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-          body:JSON.stringify({status:'transit'})
-        });
-      }
-    }catch(e){console.log('Supabase update error:',e);}
+  if(!confirm(`📍 Arrived at:\n${addr}\n\nMark as DELIVERED?`))return;
+  // Update local state immediately
+  if(ti>=0){ss[ti].s='done';DRV[curDrv].done++;}
+  const ni=ss.findIndex((s,i)=>i>ti&&s.s==='pending');
+  if(ni>=0)ss[ni].s='transit';
+  if(mgrDriverMarkers[curDrv]&&lastDeliveredLng){mgrDriverMarkers[curDrv].setLngLat(lastDeliveredLng);}
+  const allDone=ss.every(s=>s.s==='done'||s.a.includes('Return'));
+  if(allDone)DRV[curDrv].status='completed';
+  stopNav();
+  renderPhone(curDrv);
+  renderDrvCards();
+  renderStopSecs();
+  // Auto start nav to next stop
+  if(ni>=0&&!allDone){
+    showBanner('✅ Delivered! Starting next stop...','52,211,153');
+    setTimeout(()=>startNav(),1200);
+  } else if(allDone){
+    showBanner('🎉 All stops completed!','232,184,75');
   }
-  stopNav();renderPhone(curDrv);renderDrvCards();renderStopSecs();
+  // Save to Supabase in background
+  try{
+    if(ti>=0&&ss[ti].dbId){
+      await fetch(`${SUPABASE_URL}/rest/v1/stops?id=eq.${ss[ti].dbId}`,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({status:'done'})});
+    }
+    if(ni>=0&&ss[ni].dbId){
+      await fetch(`${SUPABASE_URL}/rest/v1/stops?id=eq.${ss[ni].dbId}`,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({status:'transit'})});
+    }
+  }catch(e){console.log('Supabase update error:',e);}
 }
-function stopNav(){if(navIv){clearInterval(navIv);navIv=null;}if(dRaf){cancelAnimationFrame(dRaf);dRaf=null;}isNav=false;navSt=0;document.getElementById('dmWrap').classList.remove('show');document.getElementById('nsp').classList.remove('show');document.getElementById('arrBtn').style.display='none';const btn=document.getElementById('ngBtn');btn.textContent='🗺️ Start Navigation';btn.style.background='';btn.onclick=startNav;}
-// ── AI ASSEMBLY ESTIMATOR ──
+function stopNav(){
+  if(navIv){clearInterval(navIv);navIv=null;}
+  if(navIvMap){clearInterval(navIvMap);navIvMap=null;}
+  if(drvMap){drvMap.remove();drvMap=null;drvMarker=null;}
+  isNav=false;navSt=0;
+  document.getElementById('dmWrap').classList.remove('show');
+  document.getElementById('nsp').classList.remove('show');
+  document.getElementById('arrBtn').style.display='none';
+  const btn=document.getElementById('ngBtn');
+  btn.textContent='🗺️ Start Navigation';
+  btn.style.background='';
+  btn.onclick=startNav;
+}
+function switchDrv(v){curDrv=parseInt(v);stopNav();lastDeliveredLng=null;renderPhone(curDrv);}
 const FURNITURE_DATA={
   sofa_2:    {name:'2-Seater Sofa',    time:25, people:2, note:'Attach legs, connect back cushions, fit covers. Straightforward assembly.'},
   sofa_3:    {name:'3-Seater Sofa',    time:35, people:2, note:'Attach legs, connect back frame, fit seat and back cushions.'},

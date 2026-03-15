@@ -1181,6 +1181,7 @@ async function arrived(){
   // Auto start nav to next stop
   if(ni>=0&&!allDone){
     showBanner('✅ Delivered! Starting next stop...','52,211,153');
+    isNav=false; // force reset so startNav doesn't block
     setTimeout(()=>startNav(),1200);
   } else if(allDone){
     showBanner('🎉 All stops completed!','232,184,75');
@@ -1199,6 +1200,7 @@ function stopNav(){
   if(navIv){clearInterval(navIv);navIv=null;}
   if(navIvMap){clearInterval(navIvMap);navIvMap=null;}
   if(drvMap){drvMap.remove();drvMap=null;drvMarker=null;}
+  window.navSteps=null;
   isNav=false;navSt=0;
   document.getElementById('dmWrap').classList.remove('show');
   document.getElementById('nsp').classList.remove('show');
@@ -1284,7 +1286,6 @@ async function initDrvMap(){
   const ss=STOPS[curDrv];
   const nextStop=ss.find(s=>s.s==='transit');
   const startLng=lastDeliveredLng||DEPOT_LNG;
-  // Fallback dest from DRIVER_LNG
   let dest=DRIVER_LNG[curDrv]||DRIVER_LNG[0];
   if(nextStop){
     try{
@@ -1293,66 +1294,74 @@ async function initDrvMap(){
       if(gd.features&&gd.features[0])dest=gd.features[0].center;
     }catch(e){console.log('Geocode failed, using fallback');}
   }
-  // Only init map AFTER we have dest
-  drvMap=new mapboxgl.Map({container:'drvMap',style:'mapbox://styles/mapbox/dark-v11',center:startLng,zoom:13,pitch:45});
-  drvMap.on('load',async()=>{
-    new mapboxgl.Marker({color:'#34D399'}).setLngLat(dest).addTo(drvMap);
-    const el=document.createElement('div');
-    el.style.cssText='width:30px;height:30px;border-radius:50%;background:#2DD4BF;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 4px 16px rgba(45,212,191,0.7);';
-    el.textContent='🚛';
-    drvMarker=new mapboxgl.Marker({element:el,rotationAlignment:'map'}).setLngLat(startLng).addTo(drvMap);
-    try{
-      const r=await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${startLng[0]},${startLng[1]};${dest[0]},${dest[1]}?geometries=geojson&overview=full&steps=true&access_token=${mapboxgl.accessToken}`);
-      const data=await r.json();
-      if(data.routes&&data.routes[0]){
-        routeCoords=data.routes[0].geometry.coordinates;routeStep=0;
-        const durationMins=Math.round(data.routes[0].duration/60);
-        const distKm=(data.routes[0].distance/1000).toFixed(1);
-        const etaTime=new Date(Date.now()+data.routes[0].duration*1000);
-        document.getElementById('mbEta').textContent=etaTime.toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit'});
-        document.getElementById('mbDst').textContent=distKm+'km';
-        // Extract real turn-by-turn steps
-        const maneuverIcons={'turn-left':'←','turn-right':'→','turn-slight-left':'↖','turn-slight-right':'↗','turn-sharp-left':'⬅','turn-sharp-right':'➡','straight':'↑','roundabout':'🔄','arrive':'📍','depart':'↑','merge':'↗','fork':'↗','off ramp':'↘','on ramp':'↗'};
-        window.navSteps=(data.routes[0].legs||[]).flatMap(leg=>(leg.steps||[]).map(step=>{
-          const maneuver=step.maneuver||{};
-          const type=maneuver.type||'straight';
-          const mod=maneuver.modifier||'';
-          const key=mod?`${type}-${mod}`:type;
-          const ic=maneuverIcons[key]||maneuverIcons[type]||'↑';
-          const dist=step.distance>1000?(step.distance/1000).toFixed(1)+'km':Math.round(step.distance)+'m';
-          return{ic,tx:step.name||maneuver.instruction||'Continue',d:dist==='0m'?'Destination':dist};
-        }));
-        drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
-        drvMap.addLayer({id:'route-glow',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'rgba(45,212,191,0.25)','line-width':12}});
-        drvMap.addLayer({id:'route-line',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#2DD4BF','line-width':4}});
-        navIvMap=setInterval(()=>{
-          if(!drvMarker){clearInterval(navIvMap);return;}
-          if(routeStep>=routeCoords.length-1){
-            const finalPos=routeCoords[routeCoords.length-1];
-            drvMarker.setLngLat(finalPos);
-            lastDeliveredLng=[...finalPos];
-            clearInterval(navIvMap);
-            setTimeout(showArrived,500);
-            return;
-          }
-          const pos=routeCoords[routeStep];
-          drvMarker.setLngLat(pos);
-          lastDeliveredLng=[...pos]; // update so customer map tracks live
-          if(routeStep>0){
-            const prev=routeCoords[routeStep-1];
-            const bearing=Math.atan2(pos[0]-prev[0],pos[1]-prev[1])*(180/Math.PI);
-            drvMap.easeTo({center:pos,bearing,pitch:52,zoom:15,duration:300});
-          }
-          const remaining=routeCoords.length-routeStep;
-          const distLeft=(remaining/routeCoords.length*parseFloat(document.getElementById('mbDst').textContent||'5')).toFixed(1);
-          let smoothSpd=document.getElementById('mbSpd').textContent||'40';
-          smoothSpd=Math.max(20,Math.min(60,parseInt(smoothSpd)+(Math.random()>0.5?2:-2)));
-          document.getElementById('mbSpd').textContent=smoothSpd;
-          document.getElementById('mbDst').textContent=distLeft+'km';
-          routeStep+=2;
-        },150);
+  return new Promise(resolve=>{
+    drvMap=new mapboxgl.Map({container:'drvMap',style:'mapbox://styles/mapbox/dark-v11',center:startLng,zoom:13,pitch:45});
+    drvMap.on('load',async()=>{
+      new mapboxgl.Marker({color:'#34D399'}).setLngLat(dest).addTo(drvMap);
+      const el=document.createElement('div');
+      el.style.cssText='width:30px;height:30px;border-radius:50%;background:#2DD4BF;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 4px 16px rgba(45,212,191,0.7);';
+      el.textContent='🚛';
+      drvMarker=new mapboxgl.Marker({element:el,rotationAlignment:'map'}).setLngLat(startLng).addTo(drvMap);
+      try{
+        const r=await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${startLng[0]},${startLng[1]};${dest[0]},${dest[1]}?geometries=geojson&overview=full&steps=true&access_token=${mapboxgl.accessToken}`);
+        const data=await r.json();
+        if(data.routes&&data.routes[0]){
+          routeCoords=data.routes[0].geometry.coordinates;routeStep=0;
+          const distKm=(data.routes[0].distance/1000).toFixed(1);
+          const etaTime=new Date(Date.now()+data.routes[0].duration*1000);
+          document.getElementById('mbEta').textContent=etaTime.toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit'});
+          document.getElementById('mbDst').textContent=distKm+'km';
+          const maneuverIcons={'turn-left':'←','turn-right':'→','turn-slight-left':'↖','turn-slight-right':'↗','turn-sharp-left':'⬅','turn-sharp-right':'➡','straight':'↑','roundabout':'🔄','arrive':'📍','depart':'↑','merge':'↗','fork':'↗','off ramp':'↘','on ramp':'↗'};
+          window.navSteps=(data.routes[0].legs||[]).flatMap(leg=>(leg.steps||[]).map(step=>{
+            const maneuver=step.maneuver||{};
+            const type=maneuver.type||'straight';
+            const mod=maneuver.modifier||'';
+            const key=mod?`${type}-${mod}`:type;
+            const ic=maneuverIcons[key]||maneuverIcons[type]||'↑';
+            const dist=step.distance>1000?(step.distance/1000).toFixed(1)+'km':Math.round(step.distance)+'m';
+            return{ic,tx:step.name||maneuver.instruction||'Continue',d:dist==='0m'?'Destination':dist};
+          }));
+          drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
+          drvMap.addLayer({id:'route-glow',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'rgba(45,212,191,0.25)','line-width':12}});
+          drvMap.addLayer({id:'route-line',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#2DD4BF','line-width':4}});
+        } else {
+          console.log('No route found:', data);
+          // Make a straight line fallback so truck still moves
+          routeCoords=[startLng, dest];
+        }
+      }catch(e){
+        console.log('Route error:',e);
+        routeCoords=[startLng, dest];
       }
-    }catch(e){console.log('Route error:',e);}
+      // Start truck animation regardless
+      navIvMap=setInterval(()=>{
+        if(!drvMarker){clearInterval(navIvMap);return;}
+        if(routeStep>=routeCoords.length-1){
+          const finalPos=routeCoords[routeCoords.length-1];
+          drvMarker.setLngLat(finalPos);
+          lastDeliveredLng=[...finalPos];
+          clearInterval(navIvMap);
+          setTimeout(showArrived,500);
+          return;
+        }
+        const pos=routeCoords[routeStep];
+        drvMarker.setLngLat(pos);
+        lastDeliveredLng=[...pos];
+        if(routeStep>0){
+          const prev=routeCoords[routeStep-1];
+          const bearing=Math.atan2(pos[0]-prev[0],pos[1]-prev[1])*(180/Math.PI);
+          drvMap.easeTo({center:pos,bearing,pitch:52,zoom:15,duration:500});
+        }
+        const remaining=routeCoords.length-routeStep;
+        const distLeft=(remaining/routeCoords.length*parseFloat(document.getElementById('mbDst').textContent||'5')).toFixed(1);
+        let smoothSpd=parseInt(document.getElementById('mbSpd').textContent)||40;
+        smoothSpd=Math.max(20,Math.min(60,smoothSpd+(Math.random()>0.5?1:-1)));
+        document.getElementById('mbSpd').textContent=smoothSpd;
+        document.getElementById('mbDst').textContent=distLeft+'km';
+        routeStep+=1;
+      },300);
+      resolve();
+    });
   });
 }
 

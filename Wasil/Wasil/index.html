@@ -1476,6 +1476,26 @@ window.addEventListener('resize',()=>{if(mgrMap)mgrMap.resize();if(drvMap)drvMap
 const cdt=Date.now()+(2*3600+47*60)*1000;
 document.getElementById('custDate').textContent='Today · '+new Date().toLocaleDateString('en-AE',{weekday:'long',day:'numeric',month:'long'});
 setInterval(()=>{const d=Math.max(0,cdt-Date.now());document.getElementById('cdH').textContent=String(Math.floor(d/3600000)).padStart(2,'0');document.getElementById('cdM').textContent=String(Math.floor((d%3600000)/60000)).padStart(2,'0');document.getElementById('cdS').textContent=String(Math.floor((d%60000)/1000)).padStart(2,'0');},1000);
+// ── PHASE 4: CUSTOMER TRACKING LINK ──
+function checkTrackingLink(){
+  const params=new URLSearchParams(window.location.search);
+  const order=params.get('track');
+  if(!order)return;
+  // Hide login, show customer view directly
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  const tabs=document.querySelectorAll('.nav-tab');
+  tabs.forEach(t=>t.style.display='none');
+  tabs[2].style.display='block';
+  tabs[2].classList.add('active');
+  // Update order number in customer view
+  document.querySelector('.ch-co').textContent=`Order #${order}`;
+  switchView('customer',tabs[2]);
+  setTimeout(initCustCanvas,300);
+  showBanner(`📦 Tracking order #${order}`,'45,212,191');
+}
+// Run on page load
+setTimeout(checkTrackingLink,500);
 loadFromSupabase();
 </script>
 </body>

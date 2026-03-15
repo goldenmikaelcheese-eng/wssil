@@ -724,6 +724,9 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
       <div class="drv-gr">Good morning,</div>
       <div class="drv-nm" id="drvNm">Ahmad Khalil 👋</div>
       <div class="drv-rr" id="drvRR">🗺️ Manager sent a corrected route! Stops reordered.</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button id="gpsBtn" onclick="toggleGPS()" style="flex:1;padding:8px;background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.4);border-radius:9px;color:#34D399;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;">📍 Start GPS</button>
+      </div>
       <div class="drv-sts" id="drvSts"></div>
     </div>
     <div class="nh" id="nextHero">
@@ -1211,6 +1214,64 @@ function stopNav(){
   btn.onclick=startNav;
 }
 function switchDrv(v){curDrv=parseInt(v);stopNav();lastDeliveredLng=null;renderPhone(curDrv);}
+
+// ── PHASE 3: REAL GPS ──
+let gpsInterval=null;
+let mgrPollInterval=null;
+
+function startGPS(){
+  if(!navigator.geolocation){showBanner('⚠️ GPS not supported on this device','240,90,68');return;}
+  const drvId=DRV[curDrv]?.id;
+  if(!drvId)return;
+  showBanner('📍 GPS activated — sending location live','52,211,153');
+  gpsInterval=setInterval(()=>{
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const lat=pos.coords.latitude;
+      const lng=pos.coords.longitude;
+      // Update lastDeliveredLng so nav map stays in sync
+      lastDeliveredLng=[lng,lat];
+      try{
+        await fetch(`${SUPABASE_URL}/rest/v1/locations?driver_id=eq.${drvId}`,{
+          method:'PATCH',
+          headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+          body:JSON.stringify({lat,lng,updated_at:new Date().toISOString()})
+        });
+      }catch(e){console.log('GPS update error:',e);}
+    },err=>console.log('GPS error:',err),{enableHighAccuracy:true,timeout:4000});
+  },5000);
+}
+
+function toggleGPS(){
+  const btn=document.getElementById('gpsBtn');
+  if(gpsInterval){
+    stopGPS();
+    btn.textContent='📍 Start GPS';
+    btn.style.background='rgba(52,211,153,0.15)';
+    btn.style.color='#34D399';
+  } else {
+    startGPS();
+    btn.textContent='🔴 GPS On — Live';
+    btn.style.background='rgba(240,90,68,0.15)';
+    btn.style.color='#F05A44';
+  }
+}
+
+async function pollDriverLocations(){
+  if(!mgrMap||!mgrDriverMarkers.length)return;
+  try{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/locations?order=driver_id`,{
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    const locs=await res.json();
+    locs.forEach(loc=>{
+      const idx=DRV.findIndex(d=>d.id===loc.driver_id);
+      if(idx>=0&&mgrDriverMarkers[idx]){
+        mgrDriverMarkers[idx].setLngLat([loc.lng,loc.lat]);
+      }
+    });
+  }catch(e){console.log('Poll error:',e);}
+}
+
 const FURNITURE_DATA={
   sofa_2:    {name:'2-Seater Sofa',    time:25, people:2, note:'Attach legs, connect back cushions, fit covers. Straightforward assembly.'},
   sofa_3:    {name:'3-Seater Sofa',    time:35, people:2, note:'Attach legs, connect back frame, fit seat and back cushions.'},
@@ -1257,6 +1318,9 @@ function initMgrCanvas(){
   mgrMap=new mapboxgl.Map({container:'mgrMap',style:'mapbox://styles/mapbox/dark-v11',center:[55.2708,25.2048],zoom:10.5});
   mgrMap.on('load',()=>{
     mgrMap.resize();
+    // Start polling real driver locations every 5 seconds
+    if(mgrPollInterval)clearInterval(mgrPollInterval);
+    mgrPollInterval=setInterval(pollDriverLocations,5000);
     const de=document.createElement('div');
     de.innerHTML='🏭';de.style.cssText='font-size:22px;cursor:pointer;';
     new mapboxgl.Marker({element:de}).setLngLat(DEPOT_LNG).setPopup(new mapboxgl.Popup({offset:25}).setText('Al Quoz Depot')).addTo(mgrMap);

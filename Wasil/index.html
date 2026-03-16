@@ -945,7 +945,7 @@ function submitReview(){
 function showLoginError(msg){let e=document.getElementById('loginError');if(!e){e=document.createElement('div');e.id='loginError';e.style.cssText='color:#F05A44;font-size:11px;text-align:center;margin-top:10px;font-family:DM Mono,monospace;';document.querySelector('.login-btn').parentElement.appendChild(e);}e.textContent=msg;}
 function doLogout(){document.querySelectorAll('.nav-tab').forEach(t=>{t.style.display='block';t.classList.remove('active');});document.querySelectorAll('.nav-tab')[0].classList.add('active');const s=document.getElementById('loginScreen');s.style.display='flex';s.style.opacity='0';s.style.transform='scale(0.96)';s.style.transition='all 0.3s ease';document.getElementById('mainApp').style.display='none';setTimeout(()=>{s.style.opacity='1';s.style.transform='scale(1)';},30);}
 setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});},1000);
-function switchView(v,btn){document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(e=>e.classList.remove('active'));document.getElementById('view-'+v).classList.add('active');if(btn)btn.classList.add('active');if(v==='manager'){renderDrvCards();renderStopSecs();setTimeout(initMgrCanvas,300);}if(v==='customer')setTimeout(initCustCanvas,50);if(v==='driver')renderPhone(curDrv);}
+function switchView(v,btn){document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(e=>e.classList.remove('active'));document.getElementById('view-'+v).classList.add('active');if(btn)btn.classList.add('active');if(v==='manager'){renderDrvCards();renderStopSecs();if(mgrMap){setTimeout(()=>mgrMap.resize(),100);}else{setTimeout(initMgrCanvas,300);}}if(v==='customer')setTimeout(initCustCanvas,50);if(v==='driver')renderPhone(curDrv);}
 function renderDrvCards(){
   const lateStops=STOPS.reduce((a,ss)=>a+ss.filter(s=>s.s==='late').length,0);
   const totalDeliverable=STOPS.reduce((a,ss)=>a+ss.filter(s=>!s.a.includes('Depot')&&!s.a.includes('Return')).length,0);
@@ -1332,12 +1332,13 @@ const STOP_LNG=[[55.2744,25.1972],[55.1476,25.0817],[55.2423,25.0551],[55.3100,2
 let mgrMap=null,drvMap=null,custMap=null,drvMarker=null,navIvMap=null,routeCoords=[],routeStep=0,mgrDriverMarkers=[];
 
 function initMgrCanvas(){
-  if(mgrMap){mgrMap.remove();mgrMap=null;}
+  if(mgrMap){mgrMap.resize();return;}
   const container=document.getElementById('mgrMap');
-  if(!container||container.offsetWidth===0){setTimeout(initMgrCanvas,200);return;}
+  if(!container||container.offsetWidth===0){setTimeout(initMgrCanvas,300);return;}
   mgrMap=new mapboxgl.Map({container:'mgrMap',style:'mapbox://styles/mapbox/dark-v11',center:[55.2708,25.2048],zoom:10.5});
   mgrMap.on('load',()=>{
-    mgrMap.resize();
+    setTimeout(()=>mgrMap.resize(),100);
+    setTimeout(()=>mgrMap.resize(),500);
     // Start polling real driver locations every 5 seconds
     if(mgrPollInterval)clearInterval(mgrPollInterval);
     mgrPollInterval=setInterval(pollDriverLocations,5000);

@@ -922,11 +922,15 @@ async function doLogin(){
     const tabs=document.querySelectorAll('.nav-tab');tabs.forEach(t=>t.style.display='none');
     const roleIdx={manager:0,driver:1,customer:2}[role]||0;
     tabs[roleIdx].style.display='block';tabs.forEach(t=>t.classList.remove('active'));tabs[roleIdx].classList.add('active');
-    const vs=['manager','driver','customer'];switchView(vs[roleIdx],tabs[roleIdx]);
+    const vs=['manager','driver','customer'];
+    // Load data then show view
+    await loadFromSupabase();
+    switchView(vs[roleIdx],tabs[roleIdx]);
     if(role==='manager'){
       renderDrvCards();renderStopSecs();
       if(mgrMap){mgrMap.remove();mgrMap=null;}
-      setTimeout(initMgrCanvas,500);
+      // Wait for screen to be fully visible before loading map
+      requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(initMgrCanvas,300)));
     }
     if(role==='driver'){renderPhone(curDrv);}
     if(role==='customer'){setTimeout(initCustCanvas,300);setTimeout(()=>showBanner(`📱 SMS: "Your driver ${DRV[0]?DRV[0].name:'Ahmad'} is 2 stops away — arriving soon · Track: wssil.ae/track/DEL-00001"`,'45,212,191'),1500);}
@@ -1337,7 +1341,7 @@ let mgrMap=null,drvMap=null,custMap=null,drvMarker=null,navIvMap=null,routeCoord
 function initMgrCanvas(){
   if(mgrMap){mgrMap.resize();return;}
   const container=document.getElementById('mgrMap');
-  if(!container||container.offsetWidth===0){setTimeout(initMgrCanvas,500);return;}
+  if(!container||container.offsetWidth===0||container.offsetHeight===0){setTimeout(initMgrCanvas,500);return;}
   mgrMap=new mapboxgl.Map({container:'mgrMap',style:'mapbox://styles/mapbox/dark-v11',center:[55.2708,25.2048],zoom:10.5});
   mgrMap.on('load',()=>{
     setTimeout(()=>mgrMap.resize(),100);
@@ -1510,9 +1514,11 @@ async function checkTrackingLink(){
   showBanner(`📦 Tracking order #${order}`,'45,212,191');
   return true;
 }
-// Check tracking link first — if no link, load normally
+// Check tracking link first — if no link, wait for login
 checkTrackingLink().then(isTracking=>{
-  if(!isTracking)loadFromSupabase();
+  if(!isTracking){
+    // Don't load data until user logs in - keeps login screen fast
+  }
 });
 </script>
 </body>

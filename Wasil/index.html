@@ -852,10 +852,9 @@ async function loadFromSupabase(){
     renderStopSecs();
     renderPhone(0);
     loadEditStops();
-    // Populate driver dropdown dynamically
     const drvDrop=document.getElementById('drvSelDrop');
     if(drvDrop)drvDrop.innerHTML=DRV.map((d,i)=>`<option value="${i}">${d.name}</option>`).join('');
-    setTimeout(initMgrCanvas,300);  }catch(e){
+    setTimeout(initMgrCanvas,800);  }catch(e){
     console.error('Supabase load error:',e);
     // Fall back to hardcoded data if Supabase fails
     DRV=[
@@ -1334,11 +1333,12 @@ let mgrMap=null,drvMap=null,custMap=null,drvMarker=null,navIvMap=null,routeCoord
 function initMgrCanvas(){
   if(mgrMap){mgrMap.resize();return;}
   const container=document.getElementById('mgrMap');
-  if(!container||container.offsetWidth===0){setTimeout(initMgrCanvas,300);return;}
+  if(!container||container.offsetWidth===0){setTimeout(initMgrCanvas,500);return;}
   mgrMap=new mapboxgl.Map({container:'mgrMap',style:'mapbox://styles/mapbox/dark-v11',center:[55.2708,25.2048],zoom:10.5});
   mgrMap.on('load',()=>{
     setTimeout(()=>mgrMap.resize(),100);
     setTimeout(()=>mgrMap.resize(),500);
+    setTimeout(()=>mgrMap.resize(),1500);
     // Start polling real driver locations every 5 seconds
     if(mgrPollInterval)clearInterval(mgrPollInterval);
     mgrPollInterval=setInterval(pollDriverLocations,5000);

@@ -1477,11 +1477,13 @@ const cdt=Date.now()+(2*3600+47*60)*1000;
 document.getElementById('custDate').textContent='Today · '+new Date().toLocaleDateString('en-AE',{weekday:'long',day:'numeric',month:'long'});
 setInterval(()=>{const d=Math.max(0,cdt-Date.now());document.getElementById('cdH').textContent=String(Math.floor(d/3600000)).padStart(2,'0');document.getElementById('cdM').textContent=String(Math.floor((d%3600000)/60000)).padStart(2,'0');document.getElementById('cdS').textContent=String(Math.floor((d%60000)/1000)).padStart(2,'0');},1000);
 // ── PHASE 4: CUSTOMER TRACKING LINK ──
-function checkTrackingLink(){
+async function checkTrackingLink(){
   const hash=window.location.hash;
   let order=null;
   if(hash.startsWith('#track='))order=hash.replace('#track=','');
-  if(!order)return;
+  if(!order)return false;
+  // Load data first then show customer view
+  await loadFromSupabase();
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='block';
   const tabs=document.querySelectorAll('.nav-tab');
@@ -1492,9 +1494,12 @@ function checkTrackingLink(){
   switchView('customer',tabs[2]);
   setTimeout(initCustCanvas,300);
   showBanner(`📦 Tracking order #${order}`,'45,212,191');
+  return true;
 }
-setTimeout(checkTrackingLink,500);
-loadFromSupabase();
+// Check tracking link first — if no link, load normally
+checkTrackingLink().then(isTracking=>{
+  if(!isTracking)loadFromSupabase();
+});
 </script>
 </body>
 </html>

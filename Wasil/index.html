@@ -758,6 +758,7 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
     <div class="ph-home"><div class="ph-hb"></div></div>
   </div>
   <div class="drv-ip">
+    <div class="dip-c"><div class="dip-l">View as Driver</div><select class="drv-sel" id="drvSelDrop" onchange="switchDrv(this.value)"></select></div>
     <div class="dip-c" style="background:linear-gradient(135deg,rgba(232,184,75,0.06),transparent);border-color:rgba(232,184,75,0.18);">
       <div class="dip-l" style="color:var(--gold);">WSSIL.ae</div>
       <div style="font-size:11px;color:var(--muted);line-height:1.6;">Smart last-mile routing for Dubai delivery companies. Built for speed, reliability, and happy customers.</div>
@@ -851,6 +852,9 @@ async function loadFromSupabase(){
     renderStopSecs();
     renderPhone(0);
     loadEditStops();
+    // Populate driver dropdown dynamically
+    const drvDrop=document.getElementById('drvSelDrop');
+    if(drvDrop)drvDrop.innerHTML=DRV.map((d,i)=>`<option value="${i}">${d.name}</option>`).join('');
     setTimeout(initMgrCanvas,300);  }catch(e){
     console.error('Supabase load error:',e);
     // Fall back to hardcoded data if Supabase fails

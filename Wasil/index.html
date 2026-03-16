@@ -915,23 +915,21 @@ async function doLogin(){
       const drvMatch=DRV.findIndex(d=>d.email===email);
       if(drvMatch>=0)curDrv=drvMatch;
     }
-    const s=document.getElementById('loginScreen');s.style.opacity='0';s.style.transform='scale(1.05)';s.style.transition='all 0.38s cubic-bezier(.4,0,.2,1)';
-    setTimeout(()=>{
-      s.style.display='none';document.getElementById('mainApp').style.display='block';
-      const tabs=document.querySelectorAll('.nav-tab');tabs.forEach(t=>t.style.display='none');
-      const roleIdx={manager:0,driver:1,customer:2}[role]||0;
-      tabs[roleIdx].style.display='block';tabs.forEach(t=>t.classList.remove('active'));tabs[roleIdx].classList.add('active');
-      const vs=['manager','driver','customer'];switchView(vs[roleIdx],tabs[roleIdx]);
-      if(role==='manager'){
-        renderDrvCards();renderStopSecs();
-        // Force complete map reset after login
-        if(mgrMap){mgrMap.remove();mgrMap=null;}
-        setTimeout(initMgrCanvas,1000);
-        setTimeout(()=>{if(mgrMap)mgrMap.resize();},2000);
-      }
-      if(role==='driver'){renderPhone(curDrv);}
-      if(role==='customer'){setTimeout(initCustCanvas,300);setTimeout(()=>showBanner(`📱 SMS: "Your driver ${DRV[0]?DRV[0].name:'Ahmad'} is 2 stops away — arriving soon · Track: wssil.ae/track/DEL-00001"`,'45,212,191'),1500);}
-    },370);
+    const s=document.getElementById('loginScreen');
+    // Show app immediately - no animation delay causing map issues
+    s.style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    const tabs=document.querySelectorAll('.nav-tab');tabs.forEach(t=>t.style.display='none');
+    const roleIdx={manager:0,driver:1,customer:2}[role]||0;
+    tabs[roleIdx].style.display='block';tabs.forEach(t=>t.classList.remove('active'));tabs[roleIdx].classList.add('active');
+    const vs=['manager','driver','customer'];switchView(vs[roleIdx],tabs[roleIdx]);
+    if(role==='manager'){
+      renderDrvCards();renderStopSecs();
+      if(mgrMap){mgrMap.remove();mgrMap=null;}
+      setTimeout(initMgrCanvas,500);
+    }
+    if(role==='driver'){renderPhone(curDrv);}
+    if(role==='customer'){setTimeout(initCustCanvas,300);setTimeout(()=>showBanner(`📱 SMS: "Your driver ${DRV[0]?DRV[0].name:'Ahmad'} is 2 stops away — arriving soon · Track: wssil.ae/track/DEL-00001"`,'45,212,191'),1500);}
   }catch(e){showLoginError('Connection error. Try again.');}
 }
 

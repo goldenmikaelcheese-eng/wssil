@@ -150,6 +150,14 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
 .view::-webkit-scrollbar{width:4px;}
 .view::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 #view-manager.active{display:grid !important;grid-template-columns:360px 1fr;overflow:hidden;}
+@media(max-width:600px){
+  #view-manager.active{grid-template-columns:1fr!important;}
+  .mgr-main{display:none!important;}
+  .mgr-sb{height:calc(100vh - 56px);}
+  .kpi-bar{flex-wrap:wrap;}
+  nav{padding:0 10px;}
+  .nav-tab{font-size:10px;padding:8px 10px;}
+}
 
 /* ═══ MANAGER VIEW ═══ */
 
@@ -340,6 +348,12 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
 /* ═══ DRIVER VIEW ═══ */
 #view-driver{display:none;background:var(--ink);}
 #view-driver.active{display:flex;justify-content:center;align-items:flex-start;padding:20px;gap:20px;}
+@media(max-width:600px){
+  #view-driver.active{padding:0;gap:0;}
+  .phone{width:100%!important;border-radius:0!important;border:none!important;box-shadow:none!important;min-height:100vh;}
+  .drv-ip{display:none!important;}
+  #drvMap{height:260px!important;}
+}
 .phone{width:320px;background:var(--panel);border-radius:36px;border:1px solid var(--border);overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,0.6);flex-shrink:0;}
 .ph-notch{height:32px;background:var(--ink);display:flex;align-items:center;justify-content:center;border-radius:0 0 22px 22px;margin:0 auto;width:140px;position:relative;left:0;right:0;}
 .ph-ni{display:flex;align-items:center;gap:6px;}
@@ -724,6 +738,9 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
       <div class="drv-gr">Good morning,</div>
       <div class="drv-nm" id="drvNm">Ahmad Khalil 👋</div>
       <div class="drv-rr" id="drvRR">🗺️ Manager sent a corrected route! Stops reordered.</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button id="gpsBtn" onclick="toggleGPS()" style="flex:1;padding:8px;background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.4);border-radius:9px;color:#34D399;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;">📍 Start GPS</button>
+      </div>
       <div class="drv-sts" id="drvSts"></div>
     </div>
     <div class="nh" id="nextHero">
@@ -822,6 +839,7 @@ async function loadFromSupabase(){
       col:d.color,
       status:d.status,
       lbl:d.label,
+      email:d.email||'',
       stops:stops.filter(s=>s.driver_id===d.id).length,
       done:stops.filter(s=>s.driver_id===d.id&&s.status==='done').length
     }));
@@ -897,6 +915,11 @@ async function doLogin(){
     });
     const data=await res.json();
     if(!data||data.length===0){showLoginError('Wrong email or password. Try again.');return;}
+    // If driver role, find which driver matches this email
+    if(role==='driver'){
+      const drvMatch=DRV.findIndex(d=>d.email===email);
+      if(drvMatch>=0)curDrv=drvMatch;
+    }
     const s=document.getElementById('loginScreen');s.style.opacity='0';s.style.transform='scale(1.05)';s.style.transition='all 0.38s cubic-bezier(.4,0,.2,1)';
     setTimeout(()=>{
       s.style.display='none';document.getElementById('mainApp').style.display='block';
@@ -905,7 +928,7 @@ async function doLogin(){
       tabs[roleIdx].style.display='block';tabs.forEach(t=>t.classList.remove('active'));tabs[roleIdx].classList.add('active');
       const vs=['manager','driver','customer'];switchView(vs[roleIdx],tabs[roleIdx]);
       if(role==='manager'){renderDrvCards();renderStopSecs();setTimeout(initMgrCanvas,300);}
-      if(role==='driver'){renderPhone(0);}
+      if(role==='driver'){renderPhone(curDrv);}
       if(role==='customer'){setTimeout(initCustCanvas,300);setTimeout(()=>showBanner('📱 SMS from Home Box: "Your driver Ahmad is 2 stops away — arriving at 2:15 PM" · Track: wssil.ae/track/HB-88421','45,212,191'),1500);}
     },370);
   }catch(e){showLoginError('Connection error. Try again.');}
@@ -1140,21 +1163,24 @@ function renderPhone(di){
 }
 async function startNav(){
   if(isNav)return;isNav=true;navSt=0;
-  const steps=NAVS[curDrv];
   document.getElementById('dmWrap').classList.add('show');
   document.getElementById('nsp').classList.add('show');
-  const btn=document.getElementById('ngBtn');btn.textContent='🧭 Navigating...';btn.style.background='#1A9E8F';btn.onclick=null;
+  const btn=document.getElementById('ngBtn');btn.textContent='🧭 Loading route...';btn.style.background='#1A9E8F';btn.onclick=null;
+  document.getElementById('nsList').innerHTML='<div style="color:var(--muted);font-size:11px;padding:12px;">Getting directions...</div>';
+  await initDrvMap();
+  // Steps are now set by initDrvMap from real Mapbox data — navSteps is populated there
+  if(!window.navSteps||window.navSteps.length===0){
+    // Fallback to hardcoded if Mapbox steps failed
+    window.navSteps=NAVS[curDrv]||NAVS[0];
+  }
+  const steps=window.navSteps;
   document.getElementById('nsList').innerHTML=steps.map((s,i)=>`<div class="ns-r ${i===0?'cur':''}" id="ns-${i}"><div class="ns-ic">${s.ic}</div><div>${s.tx} <span style="color:var(--gold)">${s.d==='Destination'?'🏁':s.d}</span></div></div>`).join('');
   refreshNav(steps);
-  await initDrvMap();
   navIv=setInterval(()=>{
     document.getElementById(`ns-${navSt}`)?.classList.remove('cur');
     document.getElementById(`ns-${navSt}`)?.classList.add('ds');
     navSt++;
-    if(navSt>=steps.length){
-      clearInterval(navIv);navIv=null;
-      return;
-    }
+    if(navSt>=steps.length){clearInterval(navIv);navIv=null;return;}
     document.getElementById(`ns-${navSt}`)?.classList.add('cur');
     refreshNav(steps);
   },8000);
@@ -1178,6 +1204,7 @@ async function arrived(){
   // Auto start nav to next stop
   if(ni>=0&&!allDone){
     showBanner('✅ Delivered! Starting next stop...','52,211,153');
+    isNav=false; // force reset so startNav doesn't block
     setTimeout(()=>startNav(),1200);
   } else if(allDone){
     showBanner('🎉 All stops completed!','232,184,75');
@@ -1196,6 +1223,7 @@ function stopNav(){
   if(navIv){clearInterval(navIv);navIv=null;}
   if(navIvMap){clearInterval(navIvMap);navIvMap=null;}
   if(drvMap){drvMap.remove();drvMap=null;drvMarker=null;}
+  window.navSteps=null;
   isNav=false;navSt=0;
   document.getElementById('dmWrap').classList.remove('show');
   document.getElementById('nsp').classList.remove('show');
@@ -1206,6 +1234,64 @@ function stopNav(){
   btn.onclick=startNav;
 }
 function switchDrv(v){curDrv=parseInt(v);stopNav();lastDeliveredLng=null;renderPhone(curDrv);}
+
+// ── PHASE 3: REAL GPS ──
+let gpsInterval=null;
+let mgrPollInterval=null;
+
+function startGPS(){
+  if(!navigator.geolocation){showBanner('⚠️ GPS not supported on this device','240,90,68');return;}
+  const drvId=DRV[curDrv]?.id;
+  if(!drvId)return;
+  showBanner('📍 GPS activated — sending location live','52,211,153');
+  gpsInterval=setInterval(()=>{
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const lat=pos.coords.latitude;
+      const lng=pos.coords.longitude;
+      // Update lastDeliveredLng so nav map stays in sync
+      lastDeliveredLng=[lng,lat];
+      try{
+        await fetch(`${SUPABASE_URL}/rest/v1/locations?driver_id=eq.${drvId}`,{
+          method:'PATCH',
+          headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+          body:JSON.stringify({lat,lng,updated_at:new Date().toISOString()})
+        });
+      }catch(e){console.log('GPS update error:',e);}
+    },err=>console.log('GPS error:',err),{enableHighAccuracy:true,timeout:4000});
+  },5000);
+}
+
+function toggleGPS(){
+  const btn=document.getElementById('gpsBtn');
+  if(gpsInterval){
+    stopGPS();
+    btn.textContent='📍 Start GPS';
+    btn.style.background='rgba(52,211,153,0.15)';
+    btn.style.color='#34D399';
+  } else {
+    startGPS();
+    btn.textContent='🔴 GPS On — Live';
+    btn.style.background='rgba(240,90,68,0.15)';
+    btn.style.color='#F05A44';
+  }
+}
+
+async function pollDriverLocations(){
+  if(!mgrMap||!mgrDriverMarkers.length)return;
+  try{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/locations?order=driver_id`,{
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    const locs=await res.json();
+    locs.forEach(loc=>{
+      const idx=DRV.findIndex(d=>d.id===loc.driver_id);
+      if(idx>=0&&mgrDriverMarkers[idx]){
+        mgrDriverMarkers[idx].setLngLat([loc.lng,loc.lat]);
+      }
+    });
+  }catch(e){console.log('Poll error:',e);}
+}
+
 const FURNITURE_DATA={
   sofa_2:    {name:'2-Seater Sofa',    time:25, people:2, note:'Attach legs, connect back cushions, fit covers. Straightforward assembly.'},
   sofa_3:    {name:'3-Seater Sofa',    time:35, people:2, note:'Attach legs, connect back frame, fit seat and back cushions.'},
@@ -1252,6 +1338,9 @@ function initMgrCanvas(){
   mgrMap=new mapboxgl.Map({container:'mgrMap',style:'mapbox://styles/mapbox/dark-v11',center:[55.2708,25.2048],zoom:10.5});
   mgrMap.on('load',()=>{
     mgrMap.resize();
+    // Start polling real driver locations every 5 seconds
+    if(mgrPollInterval)clearInterval(mgrPollInterval);
+    mgrPollInterval=setInterval(pollDriverLocations,5000);
     const de=document.createElement('div');
     de.innerHTML='🏭';de.style.cssText='font-size:22px;cursor:pointer;';
     new mapboxgl.Marker({element:de}).setLngLat(DEPOT_LNG).setPopup(new mapboxgl.Popup({offset:25}).setText('Al Quoz Depot')).addTo(mgrMap);
@@ -1281,7 +1370,6 @@ async function initDrvMap(){
   const ss=STOPS[curDrv];
   const nextStop=ss.find(s=>s.s==='transit');
   const startLng=lastDeliveredLng||DEPOT_LNG;
-  // Fallback dest from DRIVER_LNG
   let dest=DRIVER_LNG[curDrv]||DRIVER_LNG[0];
   if(nextStop){
     try{
@@ -1290,55 +1378,74 @@ async function initDrvMap(){
       if(gd.features&&gd.features[0])dest=gd.features[0].center;
     }catch(e){console.log('Geocode failed, using fallback');}
   }
-  // Only init map AFTER we have dest
-  drvMap=new mapboxgl.Map({container:'drvMap',style:'mapbox://styles/mapbox/dark-v11',center:startLng,zoom:13,pitch:45});
-  drvMap.on('load',async()=>{
-    new mapboxgl.Marker({color:'#34D399'}).setLngLat(dest).addTo(drvMap);
-    const el=document.createElement('div');
-    el.style.cssText='width:30px;height:30px;border-radius:50%;background:#2DD4BF;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 4px 16px rgba(45,212,191,0.7);';
-    el.textContent='🚛';
-    drvMarker=new mapboxgl.Marker({element:el,rotationAlignment:'map'}).setLngLat(startLng).addTo(drvMap);
-    try{
-      const r=await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${startLng[0]},${startLng[1]};${dest[0]},${dest[1]}?geometries=geojson&overview=full&steps=true&access_token=${mapboxgl.accessToken}`);
-      const data=await r.json();
-      if(data.routes&&data.routes[0]){
-        routeCoords=data.routes[0].geometry.coordinates;routeStep=0;
-        const durationMins=Math.round(data.routes[0].duration/60);
-        const distKm=(data.routes[0].distance/1000).toFixed(1);
-        const etaTime=new Date(Date.now()+data.routes[0].duration*1000);
-        document.getElementById('mbEta').textContent=etaTime.toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit'});
-        document.getElementById('mbDst').textContent=distKm+'km';
-        drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
-        drvMap.addLayer({id:'route-glow',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'rgba(45,212,191,0.25)','line-width':12}});
-        drvMap.addLayer({id:'route-line',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#2DD4BF','line-width':4}});
-        navIvMap=setInterval(()=>{
-          if(!drvMarker){clearInterval(navIvMap);return;}
-          if(routeStep>=routeCoords.length-1){
-            const finalPos=routeCoords[routeCoords.length-1];
-            drvMarker.setLngLat(finalPos);
-            lastDeliveredLng=[...finalPos];
-            clearInterval(navIvMap);
-            setTimeout(showArrived,500);
-            return;
-          }
-          const pos=routeCoords[routeStep];
-          drvMarker.setLngLat(pos);
-          lastDeliveredLng=[...pos]; // update so customer map tracks live
-          if(routeStep>0){
-            const prev=routeCoords[routeStep-1];
-            const bearing=Math.atan2(pos[0]-prev[0],pos[1]-prev[1])*(180/Math.PI);
-            drvMap.easeTo({center:pos,bearing,pitch:52,zoom:15,duration:300});
-          }
-          const remaining=routeCoords.length-routeStep;
-          const distLeft=(remaining/routeCoords.length*parseFloat(document.getElementById('mbDst').textContent||'5')).toFixed(1);
-          let smoothSpd=document.getElementById('mbSpd').textContent||'40';
-          smoothSpd=Math.max(20,Math.min(60,parseInt(smoothSpd)+(Math.random()>0.5?2:-2)));
-          document.getElementById('mbSpd').textContent=smoothSpd;
-          document.getElementById('mbDst').textContent=distLeft+'km';
-          routeStep+=2;
-        },150);
+  return new Promise(resolve=>{
+    drvMap=new mapboxgl.Map({container:'drvMap',style:'mapbox://styles/mapbox/dark-v11',center:startLng,zoom:13,pitch:45});
+    drvMap.on('load',async()=>{
+      new mapboxgl.Marker({color:'#34D399'}).setLngLat(dest).addTo(drvMap);
+      const el=document.createElement('div');
+      el.style.cssText='width:30px;height:30px;border-radius:50%;background:#2DD4BF;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 4px 16px rgba(45,212,191,0.7);';
+      el.textContent='🚛';
+      drvMarker=new mapboxgl.Marker({element:el,rotationAlignment:'map'}).setLngLat(startLng).addTo(drvMap);
+      try{
+        const r=await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${startLng[0]},${startLng[1]};${dest[0]},${dest[1]}?geometries=geojson&overview=full&steps=true&access_token=${mapboxgl.accessToken}`);
+        const data=await r.json();
+        if(data.routes&&data.routes[0]){
+          routeCoords=data.routes[0].geometry.coordinates;routeStep=0;
+          const distKm=(data.routes[0].distance/1000).toFixed(1);
+          const etaTime=new Date(Date.now()+data.routes[0].duration*1000);
+          document.getElementById('mbEta').textContent=etaTime.toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit'});
+          document.getElementById('mbDst').textContent=distKm+'km';
+          const maneuverIcons={'turn-left':'←','turn-right':'→','turn-slight-left':'↖','turn-slight-right':'↗','turn-sharp-left':'⬅','turn-sharp-right':'➡','straight':'↑','roundabout':'🔄','arrive':'📍','depart':'↑','merge':'↗','fork':'↗','off ramp':'↘','on ramp':'↗'};
+          window.navSteps=(data.routes[0].legs||[]).flatMap(leg=>(leg.steps||[]).map(step=>{
+            const maneuver=step.maneuver||{};
+            const type=maneuver.type||'straight';
+            const mod=maneuver.modifier||'';
+            const key=mod?`${type}-${mod}`:type;
+            const ic=maneuverIcons[key]||maneuverIcons[type]||'↑';
+            const dist=step.distance>1000?(step.distance/1000).toFixed(1)+'km':Math.round(step.distance)+'m';
+            return{ic,tx:step.name||maneuver.instruction||'Continue',d:dist==='0m'?'Destination':dist};
+          }));
+          drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
+          drvMap.addLayer({id:'route-glow',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'rgba(45,212,191,0.25)','line-width':12}});
+          drvMap.addLayer({id:'route-line',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#2DD4BF','line-width':4}});
+        } else {
+          console.log('No route found:', data);
+          // Make a straight line fallback so truck still moves
+          routeCoords=[startLng, dest];
+        }
+      }catch(e){
+        console.log('Route error:',e);
+        routeCoords=[startLng, dest];
       }
-    }catch(e){console.log('Route error:',e);}
+      // Start truck animation regardless
+      navIvMap=setInterval(()=>{
+        if(!drvMarker){clearInterval(navIvMap);return;}
+        if(routeStep>=routeCoords.length-1){
+          const finalPos=routeCoords[routeCoords.length-1];
+          drvMarker.setLngLat(finalPos);
+          lastDeliveredLng=[...finalPos];
+          clearInterval(navIvMap);
+          setTimeout(showArrived,500);
+          return;
+        }
+        const pos=routeCoords[routeStep];
+        drvMarker.setLngLat(pos);
+        lastDeliveredLng=[...pos];
+        if(routeStep>0){
+          const prev=routeCoords[routeStep-1];
+          const bearing=Math.atan2(pos[0]-prev[0],pos[1]-prev[1])*(180/Math.PI);
+          drvMap.easeTo({center:pos,bearing,pitch:52,zoom:15,duration:500});
+        }
+        const remaining=routeCoords.length-routeStep;
+        const distLeft=(remaining/routeCoords.length*parseFloat(document.getElementById('mbDst').textContent||'5')).toFixed(1);
+        let smoothSpd=parseInt(document.getElementById('mbSpd').textContent)||40;
+        smoothSpd=Math.max(20,Math.min(60,smoothSpd+(Math.random()>0.5?1:-1)));
+        document.getElementById('mbSpd').textContent=smoothSpd;
+        document.getElementById('mbDst').textContent=distLeft+'km';
+        routeStep+=1;
+      },300);
+      resolve();
+    });
   });
 }
 
@@ -1369,7 +1476,30 @@ window.addEventListener('resize',()=>{if(mgrMap)mgrMap.resize();if(drvMap)drvMap
 const cdt=Date.now()+(2*3600+47*60)*1000;
 document.getElementById('custDate').textContent='Today · '+new Date().toLocaleDateString('en-AE',{weekday:'long',day:'numeric',month:'long'});
 setInterval(()=>{const d=Math.max(0,cdt-Date.now());document.getElementById('cdH').textContent=String(Math.floor(d/3600000)).padStart(2,'0');document.getElementById('cdM').textContent=String(Math.floor((d%3600000)/60000)).padStart(2,'0');document.getElementById('cdS').textContent=String(Math.floor((d%60000)/1000)).padStart(2,'0');},1000);
-loadFromSupabase();
+// ── PHASE 4: CUSTOMER TRACKING LINK ──
+async function checkTrackingLink(){
+  const hash=window.location.hash;
+  let order=null;
+  if(hash.startsWith('#track='))order=hash.replace('#track=','');
+  if(!order)return false;
+  // Load data first then show customer view
+  await loadFromSupabase();
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  const tabs=document.querySelectorAll('.nav-tab');
+  tabs.forEach(t=>t.style.display='none');
+  tabs[2].style.display='block';
+  tabs[2].classList.add('active');
+  document.querySelector('.ch-co').textContent=`Order #${order}`;
+  switchView('customer',tabs[2]);
+  setTimeout(initCustCanvas,300);
+  showBanner(`📦 Tracking order #${order}`,'45,212,191');
+  return true;
+}
+// Check tracking link first — if no link, load normally
+checkTrackingLink().then(isTracking=>{
+  if(!isTracking)loadFromSupabase();
+});
 </script>
 </body>
 </html>

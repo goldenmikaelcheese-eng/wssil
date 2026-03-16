@@ -586,7 +586,6 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
     <div class="ss"><div class="sl">⚙️ Settings</div>
       <button class="rep-btn" onclick="openSettings()">⚙️ Furniture Catalog & Estimator</button>
     </div>
-    <div class="ss"><div class="sl">📋 Stops by Driver</div><div id="drvStopSecs"></div></div>
   </div>
   <div class="mgr-main">
     <div class="kpi-bar">
@@ -759,13 +758,6 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
     <div class="ph-home"><div class="ph-hb"></div></div>
   </div>
   <div class="drv-ip">
-    <div class="dip-c"><div class="dip-l">View as Driver</div><select class="drv-sel" onchange="switchDrv(this.value)"><option value="0">Ahmad Khalil</option><option value="1">Mohammed Al Farsi</option><option value="2">Carlos Reyes</option><option value="3">Priya Sharma</option></select></div>
-    <div class="dip-c">
-      <div class="dip-l">Navigation guide</div>
-      <div class="dip-r"><div class="dip-ic">1️⃣</div><div><div class="dip-tx">Tap "Start Navigation"</div><div class="dip-sx">Map zooms in, car follows your position</div></div></div>
-      <div class="dip-r"><div class="dip-ic">2️⃣</div><div><div class="dip-tx">Map rotates with heading</div><div class="dip-sx">Roads always in front, compass fixed top-right</div></div></div>
-      <div class="dip-r"><div class="dip-ic">3️⃣</div><div><div class="dip-tx">Tap "📍 Arrived" on delivery</div><div class="dip-sx">Stop checks off, next stop loads automatically</div></div></div>
-    </div>
     <div class="dip-c" style="background:linear-gradient(135deg,rgba(232,184,75,0.06),transparent);border-color:rgba(232,184,75,0.18);">
       <div class="dip-l" style="color:var(--gold);">WSSIL.ae</div>
       <div style="font-size:11px;color:var(--muted);line-height:1.6;">Smart last-mile routing for Dubai delivery companies. Built for speed, reliability, and happy customers.</div>
@@ -776,7 +768,7 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
 <!-- CUSTOMER VIEW -->
 <div id="view-customer" class="view">
   <div class="csh">
-    <div class="ch"><div class="ch-ic">📦</div><div class="ch-co">Home Box · Order #HB-88421</div><div class="ch-tt">Your delivery is on the way!</div><div class="ch-sb">No need to wait all day — we'll tell you exactly when.</div></div>
+    <div class="ch"><div class="ch-ic">📦</div><div class="ch-co" id="custOrderNum">360 Express · Order #DEL-00001</div><div class="ch-tt">Your delivery is on the way!</div><div class="ch-sb">No need to wait all day — we'll tell you exactly when.</div></div>
     <div class="eta-d"><div class="eta-lb">Estimated Arrival</div><div class="eta-t">2:15 – 2:35 PM</div><div class="eta-w" id="custDate">Today</div><div class="eta-cd"><div class="cd-u"><div class="cd-n" id="cdH">02</div><div class="cd-l">Hours</div></div><div class="cd-u"><div class="cd-n" id="cdM">47</div><div class="cd-l">Mins</div></div><div class="cd-u"><div class="cd-n" id="cdS">00</div><div class="cd-l">Secs</div></div></div></div>
     <div class="cst">
       <div class="sr sd"><div class="si">✓</div><div class="sc2"><div class="st">Order Confirmed</div><div class="sd2">Warehouse received · 8:00 AM</div></div></div>
@@ -784,7 +776,7 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Mo
       <div class="sr sa"><div class="si">🚛</div><div class="sc2"><div class="st">Driver En Route</div><div class="sd2">Ahmad is heading to you — 3 stops away</div></div></div>
       <div class="sr sp"><div class="si">🏠</div><div class="sc2"><div class="st">Delivered</div><div class="sd2">We'll notify you on arrival</div></div></div>
     </div>
-    <div class="dic"><div class="dav">A</div><div class="di-inf2"><div class="di-lb">Your Driver</div><div class="di-nm2">Ahmad Khalil</div><div class="di-vh2">White Toyota Hiace · DXB 4421</div></div><button class="cll" onclick="alert('Calls via masked number.')">📞</button></div>
+    <div class="dic"><div class="dav" id="custDrvAv">A</div><div class="di-inf2"><div class="di-lb">Your Driver</div><div class="di-nm2" id="custDrvNm">Ahmad Khalil</div><div class="di-vh2" id="custDrvVh">White Toyota Hiace · DXB 4421</div></div><button class="cll" onclick="alert('Calls via masked number.')">📞</button></div>
     <div class="cmap"><div id="custMap"></div><div class="cmap-lb">📍 Live tracking active</div></div>
     
     <!-- REVIEW SECTION -->
@@ -929,7 +921,7 @@ async function doLogin(){
       const vs=['manager','driver','customer'];switchView(vs[roleIdx],tabs[roleIdx]);
       if(role==='manager'){renderDrvCards();renderStopSecs();setTimeout(initMgrCanvas,300);}
       if(role==='driver'){renderPhone(curDrv);}
-      if(role==='customer'){setTimeout(initCustCanvas,300);setTimeout(()=>showBanner('📱 SMS from Home Box: "Your driver Ahmad is 2 stops away — arriving at 2:15 PM" · Track: wssil.ae/track/HB-88421','45,212,191'),1500);}
+      if(role==='customer'){setTimeout(initCustCanvas,300);setTimeout(()=>showBanner(`📱 SMS: "Your driver ${DRV[0]?DRV[0].name:'Ahmad'} is 2 stops away — arriving soon · Track: wssil.ae/track/DEL-00001"`,'45,212,191'),1500);}
     },370);
   }catch(e){showLoginError('Connection error. Try again.');}
 }
@@ -1148,7 +1140,11 @@ function renderPhone(di){
   document.getElementById('drvNm').textContent=d.name+' 👋';
   document.getElementById('drvRR').classList.toggle('show',di===0&&isRR);
   const rem=ss.filter(s=>s.s!=='done').length,done=ss.filter(s=>s.s==='done').length;
-  document.getElementById('drvSts').innerHTML=`<div class="drv-st"><div class="drv-sv">${rem}</div><div class="drv-sl">Left</div></div><div class="drv-st"><div class="drv-sv">${done}</div><div class="drv-sl">Done</div></div><div class="drv-st"><div class="drv-sv">${Math.round(ss.length*6.2)}km</div><div class="drv-sl">Total</div></div><div class="drv-st"><div class="drv-sv">${ss[ss.length-1].t}</div><div class="drv-sl">Finish</div></div>`;
+  // Calculate real ETA based on current time + remaining stops (avg 25 mins each)
+  const etaMins=rem*25;
+  const etaTime=new Date(Date.now()+etaMins*60000);
+  const etaStr=etaTime.toLocaleTimeString('en-AE',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('drvSts').innerHTML=`<div class="drv-st"><div class="drv-sv">${rem}</div><div class="drv-sl">Left</div></div><div class="drv-st"><div class="drv-sv">${done}</div><div class="drv-sl">Done</div></div><div class="drv-st"><div class="drv-sv">${Math.round(ss.length*6.2)}km</div><div class="drv-sl">Total</div></div><div class="drv-st"><div class="drv-sv">${etaStr}</div><div class="drv-sl">Finish</div></div>`;
   if(next){
     // Use stable distance — only recalculate if stop changed
     if(!next._dist){next._dist=(1.5+Math.random()*5).toFixed(1);}
@@ -1451,6 +1447,15 @@ async function initDrvMap(){
 
 function initCustCanvas(){
   if(custMap)return;
+  // Update customer view with real driver 0 data
+  if(DRV[0]){
+    document.getElementById('custDrvNm').textContent=DRV[0].name;
+    document.getElementById('custDrvVh').textContent=DRV[0].vh;
+    document.getElementById('custDrvAv').textContent=DRV[0].init;
+    document.getElementById('custDrvAv').style.background=DRV[0].col;
+    document.querySelector('.sr.sa .sd2').textContent=`${DRV[0].name.split(' ')[0]} is heading to you — 3 stops away`;
+    document.querySelector('#reviewSection .font-size\\:10px, #reviewSection div:nth-child(2)') && (document.querySelectorAll('#reviewSection div')[1].textContent=`Rate your experience with ${DRV[0].name}`);
+  }
   // Use Ahmad's real current position (driver 0)
   const drvPos=lastDeliveredLng||DRIVER_LNG[0]||[55.2500,25.1500];
   const custStop=STOPS[0]?STOPS[0].find(s=>s.s==='transit'):null;

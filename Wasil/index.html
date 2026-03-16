@@ -922,7 +922,7 @@ async function doLogin(){
       const roleIdx={manager:0,driver:1,customer:2}[role]||0;
       tabs[roleIdx].style.display='block';tabs.forEach(t=>t.classList.remove('active'));tabs[roleIdx].classList.add('active');
       const vs=['manager','driver','customer'];switchView(vs[roleIdx],tabs[roleIdx]);
-      if(role==='manager'){renderDrvCards();renderStopSecs();setTimeout(initMgrCanvas,300);}
+      if(role==='manager'){renderDrvCards();renderStopSecs();setTimeout(initMgrCanvas,800);setTimeout(()=>{if(mgrMap)mgrMap.resize();},1500);}
       if(role==='driver'){renderPhone(curDrv);}
       if(role==='customer'){setTimeout(initCustCanvas,300);setTimeout(()=>showBanner(`📱 SMS: "Your driver ${DRV[0]?DRV[0].name:'Ahmad'} is 2 stops away — arriving soon · Track: wssil.ae/track/DEL-00001"`,'45,212,191'),1500);}
     },370);

@@ -293,13 +293,18 @@ body.night .rbt{color:var(--amber)}
             <div style="font-size:11px;color:var(--tx3);margin-bottom:6px;">Delivery stops</div>
             <div id="builder-stops" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
 
-            <div style="display:flex;gap:6px;">
-              <input id="new-stop-input" type="text" placeholder="Type address or place in Dubai..."
-                style="flex:1;padding:7px 10px;border:1px solid var(--bo);border-radius:var(--rs);background:var(--sf2);color:var(--tx);font-family:var(--fn);font-size:13px;"
-                onkeydown="if(event.key==='Enter')searchAndAddStop()">
-              <button class="rbtn rbtn-add" onclick="searchAndAddStop()">+ Add</button>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <select id="area-filter" onchange="renderStopPicker()"
+                style="padding:7px 10px;border:1px solid var(--bo);border-radius:var(--rs);background:var(--sf2);color:var(--tx);font-family:var(--fn);font-size:12px;">
+                <option value="all">All areas</option>
+                <option value="deira">Deira / Bur Dubai</option>
+                <option value="jlt">JLT / Al Barsha</option>
+                <option value="downtown">Downtown / DIFC</option>
+                <option value="marina">Dubai Marina</option>
+                <option value="studio">Studio City</option>
+              </select>
             </div>
-            <div id="stop-search-results" style="margin-top:6px;display:flex;flex-direction:column;gap:4px;"></div>
+            <div id="stop-picker" style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:5px;"></div>
 
             <button class="rbtn rbtn-green" style="width:100%;margin-top:12px;" onclick="saveRoute()">✓ Save & push route to driver</button>
           </div>
@@ -756,6 +761,7 @@ function renderBuilder(){
     document.getElementById('edit-driver-name').value=d.name;
     document.getElementById('edit-driver-area').value=d.area;
     renderStops(d);
+    renderStopPicker();
   } else {
     document.getElementById('builder-editor').style.display='none';
   }
@@ -816,39 +822,66 @@ function deleteDriver(){
   showToast('Driver removed');
 }
 
-async function searchAndAddStop(){
-  const input=document.getElementById('new-stop-input');
-  const q=input.value.trim();
-  if(!q)return;
-  const resultsEl=document.getElementById('stop-search-results');
-  resultsEl.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:4px 0">Searching...</div>';
-  try{
-    const res=await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q+' Dubai')}.json?country=ae&limit=4&access_token=${TOKEN}`);
-    const data=await res.json();
-    if(!data.features||!data.features.length){resultsEl.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:4px 0">No results found</div>';return;}
-    resultsEl.innerHTML=data.features.map((f,i)=>`
-      <div class="sr-item" onclick="addStopFromResult(${i})">
-        <strong>${f.text}</strong><br>
-        <span style="color:var(--tx2);font-size:11px">${f.place_name}</span>
-      </div>`).join('');
-    window._searchResults=data.features;
-  }catch(e){resultsEl.innerHTML='<div style="font-size:12px;color:var(--rd)">Search failed</div>';}
+const LOCATIONS=[
+  // Deira / Bur Dubai
+  {area:'deira',name:'Al Rigga Residence',addr:'Al Rigga Road, Deira',coords:[55.3195,25.2630]},
+  {area:'deira',name:'Al Muroor Building',addr:'Abu Baker Al Siddique Rd, Deira',coords:[55.3312,25.2580]},
+  {area:'deira',name:'Burj Al Salam Tower',addr:'Khalid Bin Al Waleed Rd, Bur Dubai',coords:[55.3024,25.2494]},
+  {area:'deira',name:'Al Mankhool Apts',addr:'Al Mankhool Road, Bur Dubai',coords:[55.3010,25.2460]},
+  {area:'deira',name:'Century Plaza Apts',addr:'Al Nahda Road, Deira',coords:[55.3380,25.2700]},
+  // JLT / Al Barsha
+  {area:'jlt',name:'Goldcrest Views 1',addr:'Cluster K, JLT',coords:[55.1490,25.0745]},
+  {area:'jlt',name:'Platinum Residences',addr:'Cluster I, JLT',coords:[55.1520,25.0768]},
+  {area:'jlt',name:'Mazaya Business Ave',addr:'Cluster B, JLT',coords:[55.1560,25.0710]},
+  {area:'jlt',name:'Al Barsha 1 Apts',addr:'Al Barsha 1, Dubai',coords:[55.1990,25.1097]},
+  {area:'jlt',name:'Al Barsha Heights',addr:'Tecom, Al Barsha',coords:[55.1880,25.1050]},
+  // Downtown / DIFC
+  {area:'downtown',name:'Burj Vista Tower 1',addr:'Mohammed Bin Rashid Blvd',coords:[55.2780,25.1960]},
+  {area:'downtown',name:'Act One Act Two',addr:'Downtown Dubai',coords:[55.2760,25.1940]},
+  {area:'downtown',name:'Boulevard Point',addr:'Downtown Dubai',coords:[55.2744,25.1972]},
+  {area:'downtown',name:'Index Tower',addr:'Financial Centre Rd, DIFC',coords:[55.2796,25.2120]},
+  {area:'downtown',name:'Central Park Towers',addr:'DIFC, Dubai',coords:[55.2810,25.2110]},
+  // Dubai Marina
+  {area:'marina',name:'Princess Tower',addr:'Marina Walk, Dubai Marina',coords:[55.1397,25.0762]},
+  {area:'marina',name:'Cayan Tower',addr:'Al Marsa Street, Marina',coords:[55.1340,25.0810]},
+  {area:'marina',name:'Sulafa Tower',addr:'Dubai Marina',coords:[55.1380,25.0790]},
+  {area:'marina',name:'Marina Crown Tower',addr:'Al Gharbi St, Marina',coords:[55.1410,25.0780]},
+  {area:'marina',name:'Le Reve Tower',addr:'Dubai Marina',coords:[55.1360,25.0800]},
+  // Studio City
+  {area:'studio',name:'Glitz Residence 1',addr:'Studio City Blvd',coords:[55.1570,25.0940]},
+  {area:'studio',name:'Glitz Residence 2',addr:'Studio City Blvd',coords:[55.1580,25.0930]},
+  {area:'studio',name:'Hera Tower',addr:'Hessa Street, Studio City',coords:[55.1590,25.0960]},
+  {area:'studio',name:'Elite Sports Res 1',addr:'Mohammed Bin Zayed Rd',coords:[55.1600,25.0920]},
+  {area:'studio',name:'Studio One Apts',addr:'Studio City Roundabout',coords:[55.1610,25.0950]}
+];
+
+function renderStopPicker(){
+  const filter=document.getElementById('area-filter').value;
+  const list=filter==='all'?LOCATIONS:LOCATIONS.filter(l=>l.area===filter);
+  const d=RB.drivers.find(x=>x.id===RB.selectedId);
+  const addedNames=d?d.stops.map(s=>s.name):[];
+  document.getElementById('stop-picker').innerHTML=list.map(l=>{
+    const added=addedNames.includes(l.name);
+    return`<div onclick="${added?'':('pickStop(''+l.name+'')')}" style="padding:7px 9px;border-radius:var(--rs);border:1px solid ${added?'var(--green)':'var(--bo)'};background:${added?'var(--gl)':'var(--sf2)'};cursor:${added?'default':'pointer'};transition:all .15s;">
+      <div style="font-size:12px;font-weight:600;color:${added?'var(--gd)':'var(--tx)'};">${added?'✓ ':''} ${l.name}</div>
+      <div style="font-size:10px;color:var(--tx3);">${l.addr}</div>
+    </div>`;
+  }).join('');
 }
 
-function addStopFromResult(idx){
-  const f=window._searchResults[idx];
+function pickStop(name){
+  const loc=LOCATIONS.find(l=>l.name===name);
   const d=RB.drivers.find(x=>x.id===RB.selectedId);
-  if(!d)return;
-  d.stops.push({name:f.text+', '+f.context?.[0]?.text||'Dubai',coords:f.center});
-  document.getElementById('new-stop-input').value='';
-  document.getElementById('stop-search-results').innerHTML='';
+  if(!d||!loc)return;
+  if(d.stops.find(s=>s.name===loc.name)){showToast('Already added!');return;}
+  d.stops.push({name:loc.name,coords:loc.coords});
   renderStops(d);
-  if(mainMap) mainMap.flyTo({center:f.center,zoom:15,speed:1.2});
-  // add pin on map
+  renderStopPicker();
+  if(mainMap)mainMap.flyTo({center:loc.coords,zoom:15,speed:1.2});
   const el=document.createElement('div');
   el.style.cssText='width:10px;height:10px;border-radius:50%;background:#1D9E75;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3);';
-  new mapboxgl.Marker(el).setLngLat(f.center).setPopup(new mapboxgl.Popup({offset:12}).setHTML(`<span style="font-family:'DM Sans',sans-serif;font-size:12px">${f.text}</span>`)).addTo(mainMap);
-  showToast('✓ Stop added — '+f.text);
+  new mapboxgl.Marker(el).setLngLat(loc.coords).setPopup(new mapboxgl.Popup({offset:12}).setHTML(`<span style="font-family:'DM Sans',sans-serif;font-size:12px">${loc.name}</span>`)).addTo(mainMap);
+  showToast('✓ '+loc.name+' added!');
 }
 
 function saveRoute(){

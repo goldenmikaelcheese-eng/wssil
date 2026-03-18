@@ -497,13 +497,6 @@ function initDriverMap(){
   drvMap.on('load',()=>fetchRoute(DRIVER_POS,STOPS[0]));
 }
 
-function drawRouteLine(){
-  if(!routeCoords.length||!drvMap.isStyleLoaded())return;
-  if(drvMap.getLayer('route'))drvMap.removeLayer('route');
-  if(drvMap.getSource('route'))drvMap.removeSource('route');
-  drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
-  drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':6,'line-opacity':1}});
-}
 async function fetchRoute(from,to){
   try{
     const res=await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${from[0]},${from[1]};${to[0]},${to[1]}?geometries=geojson&steps=true&access_token=${TOKEN}`);
@@ -513,8 +506,13 @@ async function fetchRoute(from,to){
     routeCoords=route.geometry.coordinates;
     const dur=Math.round(route.duration/60),dist=(route.distance/1000).toFixed(1);
     document.getElementById('stop-addr').textContent=`${S.customers[S.currentStopIdx].area} · ${dur} min · ${dist} km`;
-    drawRouteLine();
-    setTimeout(()=>startAnim(), 300);
+    if(drvMap.getSource('route')){
+      drvMap.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}});
+    } else {
+      drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
+      drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':5,'line-opacity':1}});
+    }
+    startAnim();
   }catch(e){console.log('Route error',e)}
 }
 
@@ -525,7 +523,7 @@ function startAnim(){
     if(animIdx>=routeCoords.length){clearInterval(animInt);animInt=null;return;}
     const pos=routeCoords[animIdx];
     driverMarker.setLngLat(pos);
-    drvMap.jumpTo({center:pos,zoom:17});
+    drvMap.easeTo({center:pos,duration:1100,essential:true});
     animIdx+=1;
   },1200);
 }

@@ -480,14 +480,19 @@ function initMainMap(){
 function flyTo(lat,lng){if(mainMap)mainMap.flyTo({center:[lng,lat],zoom:14,speed:1.2})}
 
 function initDriverMap(){
-  drvMap=new mapboxgl.Map({container:'driver-map',style:mapStyle(document.body.classList.contains('night')),center:DRIVER_POS,zoom:14,attributionControl:false});
+  drvMap=new mapboxgl.Map({container:'driver-map',style:mapStyle(document.body.classList.contains('night')),center:DRIVER_POS,zoom:15,attributionControl:false});
   drvMap.addControl(new mapboxgl.NavigationControl(),'top-right');
+  // truck SVG icon
   const el=document.createElement('div');
-  el.style.cssText=`width:14px;height:14px;border-radius:50%;background:#1D9E75;border:3px solid white;box-shadow:0 0 0 4px rgba(29,158,117,.25);`;
+  el.style.cssText=`width:38px;height:38px;display:flex;align-items:center;justify-content:center;`;
+  el.innerHTML=`<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="19" cy="19" r="19" fill="#1D9E75"/>
+    <text x="19" y="24" text-anchor="middle" font-size="18" fill="white">🚛</text>
+  </svg>`;
   driverMarker=new mapboxgl.Marker(el).setLngLat(DRIVER_POS).addTo(drvMap);
   const dest=document.createElement('div');
-  dest.style.cssText=`width:28px;height:28px;border-radius:50%;background:#EF9F27;color:white;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);`;
-  dest.textContent='⚠';
+  dest.style.cssText=`width:32px;height:32px;border-radius:50%;background:#EF9F27;color:white;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);`;
+  dest.textContent='📍';
   new mapboxgl.Marker(dest).setLngLat(STOPS[0]).addTo(drvMap);
   drvMap.on('load',()=>fetchRoute(DRIVER_POS,STOPS[0]));
 }
@@ -506,20 +511,24 @@ async function fetchRoute(from,to){
     }
     const dur=Math.round(route.duration/60),dist=(route.distance/1000).toFixed(1);
     document.getElementById('stop-addr').textContent=`${S.customers[S.currentStopIdx].area} · ${dur} min · ${dist} km`;
-    const bounds=routeCoords.reduce((b,c)=>b.extend(c),new mapboxgl.LngLatBounds(routeCoords[0],routeCoords[0]));
-    drvMap.fitBounds(bounds,{padding:40});
+    drvMap.fitBounds(
+      routeCoords.reduce((b,c)=>b.extend(c),new mapboxgl.LngLatBounds(routeCoords[0],routeCoords[0])),
+      {padding:60, maxZoom:15}
+    );
     startAnim();
   }catch(e){console.log('Route error',e)}
 }
 
 function startAnim(){
   if(animInt)clearInterval(animInt);animIdx=0;
-  animInt=setInterval(()=>{if(animIdx>=routeCoords.length){clearInterval(animInt);return}driverMarker.setLngLat(routeCoords[animIdx]);animIdx+=3},100);
+  animInt=setInterval(()=>{if(animIdx>=routeCoords.length){clearInterval(animInt);return}driverMarker.setLngLat(routeCoords[animIdx]);animIdx+=1},400);
 }
 function navigateToStop(){
   showToast('🗺 Route loaded — follow the green line!');
-  if(routeCoords.length>0){const b=routeCoords.reduce((b,c)=>b.extend(c),new mapboxgl.LngLatBounds(routeCoords[0],routeCoords[0]));drvMap.fitBounds(b,{padding:40});startAnim()}
-  else fetchRoute(DRIVER_POS,STOPS[0]);
+  if(routeCoords.length>0){
+    drvMap.flyTo({center:routeCoords[0],zoom:15,speed:1.2});
+    startAnim();
+  } else fetchRoute(DRIVER_POS,STOPS[0]);
 }
 
 function openRefuseModal(){

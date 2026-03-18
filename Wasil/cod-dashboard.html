@@ -297,11 +297,11 @@ body.night .rbt{color:var(--amber)}
               <select id="area-filter" onchange="renderStopPicker()"
                 style="padding:7px 10px;border:1px solid var(--bo);border-radius:var(--rs);background:var(--sf2);color:var(--tx);font-family:var(--fn);font-size:12px;">
                 <option value="all">All areas</option>
+                <option value="downtown">Downtown / Burj Khalifa</option>
+                <option value="marina">JLT / Dubai Marina</option>
                 <option value="deira">Deira / Bur Dubai</option>
-                <option value="jlt">JLT / Al Barsha</option>
-                <option value="downtown">Downtown / DIFC</option>
-                <option value="marina">Dubai Marina</option>
-                <option value="studio">Studio City</option>
+                <option value="barsha">Al Barsha / Mall of Emirates</option>
+                <option value="difc">Business Bay / DIFC</option>
               </select>
             </div>
             <div id="stop-picker" style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:5px;"></div>
@@ -722,9 +722,11 @@ function submitRating(){
 /* ══ ROUTE BUILDER ══ */
 const RB={
   drivers:[
-    {id:1,name:'Ahmed Hassan',area:'Deira / Bur Dubai',stops:[{name:'Gold Souk, Deira',coords:[55.2948,25.2854]},{name:'Karama Center, Bur Dubai',coords:[55.3076,25.2408]}]},
-    {id:2,name:'Khalid Mohammed',area:'JLT / Al Barsha',stops:[{name:'Goldcrest Views, JLT',coords:[55.1490,25.0745]},{name:'Mall of Emirates area',coords:[55.1990,25.1097]}]},
-    {id:3,name:'Ravi Singh',area:'Downtown / DIFC',stops:[{name:'Burj Khalifa area',coords:[55.2744,25.1972]},{name:'Dubai Mall entrance',coords:[55.2796,25.1985]}]}
+    {id:1,name:'Ahmed Hassan',area:'Downtown / Burj Khalifa',stops:[{name:'Burj Vista Tower 1',coords:[55.2780,25.1960]},{name:'Boulevard Point',coords:[55.2744,25.1972]}]},
+    {id:2,name:'Khalid Mohammed',area:'JLT / Dubai Marina',stops:[{name:'Princess Tower',coords:[55.1397,25.0762]},{name:'Goldcrest Views 1',coords:[55.1490,25.0745]}]},
+    {id:3,name:'Ravi Singh',area:'Deira / Bur Dubai',stops:[{name:'Al Rigga Residence',coords:[55.3195,25.2630]},{name:'Burj Al Salam Tower',coords:[55.3024,25.2494]}]},
+    {id:4,name:'Omar Al Farsi',area:'Al Barsha / Mall of Emirates',stops:[{name:'Al Barsha 1 Residence',coords:[55.1990,25.1097]},{name:'Al Barsha Heights Apts',coords:[55.1880,25.1050]}]},
+    {id:5,name:'Priya Sharma',area:'Business Bay / DIFC',stops:[{name:'Executive Tower A',coords:[55.2850,25.1850]},{name:'Index Tower',coords:[55.2796,25.2120]}]}
   ],
   selectedId:null,
   nextId:4
@@ -823,36 +825,36 @@ function deleteDriver(){
 }
 
 const LOCATIONS=[
+  // Downtown / Burj Khalifa
+  {area:'downtown',name:'Burj Vista Tower 1',addr:'Mohammed Bin Rashid Blvd, Downtown',coords:[55.2780,25.1960]},
+  {area:'downtown',name:'Address Dubai Mall',addr:'Dubai Mall, Downtown',coords:[55.2796,25.1985]},
+  {area:'downtown',name:'Boulevard Point',addr:'Downtown Dubai',coords:[55.2744,25.1972]},
+  {area:'downtown',name:'Act One Act Two',addr:'Downtown Dubai',coords:[55.2760,25.1940]},
+  {area:'downtown',name:'The Residence Downtown',addr:'Sheikh Mohammed Bin Rashid Blvd',coords:[55.2770,25.1950]},
+  // JLT / Dubai Marina
+  {area:'marina',name:'Princess Tower',addr:'Marina Walk, Dubai Marina',coords:[55.1397,25.0762]},
+  {area:'marina',name:'Cayan Tower',addr:'Al Marsa Street, Dubai Marina',coords:[55.1340,25.0810]},
+  {area:'marina',name:'Goldcrest Views 1',addr:'Cluster K, JLT',coords:[55.1490,25.0745]},
+  {area:'marina',name:'Sulafa Tower',addr:'Dubai Marina',coords:[55.1380,25.0790]},
+  {area:'marina',name:'Platinum Residences',addr:'Cluster I, JLT',coords:[55.1520,25.0768]},
   // Deira / Bur Dubai
   {area:'deira',name:'Al Rigga Residence',addr:'Al Rigga Road, Deira',coords:[55.3195,25.2630]},
-  {area:'deira',name:'Al Muroor Building',addr:'Abu Baker Al Siddique Rd, Deira',coords:[55.3312,25.2580]},
   {area:'deira',name:'Burj Al Salam Tower',addr:'Khalid Bin Al Waleed Rd, Bur Dubai',coords:[55.3024,25.2494]},
-  {area:'deira',name:'Al Mankhool Apts',addr:'Al Mankhool Road, Bur Dubai',coords:[55.3010,25.2460]},
+  {area:'deira',name:'Gold Souk Apts',addr:'Old Baladiya Street, Deira',coords:[55.2948,25.2854]},
+  {area:'deira',name:'Al Mankhool Residence',addr:'Al Mankhool Road, Bur Dubai',coords:[55.3010,25.2460]},
   {area:'deira',name:'Century Plaza Apts',addr:'Al Nahda Road, Deira',coords:[55.3380,25.2700]},
-  // JLT / Al Barsha
-  {area:'jlt',name:'Goldcrest Views 1',addr:'Cluster K, JLT',coords:[55.1490,25.0745]},
-  {area:'jlt',name:'Platinum Residences',addr:'Cluster I, JLT',coords:[55.1520,25.0768]},
-  {area:'jlt',name:'Mazaya Business Ave',addr:'Cluster B, JLT',coords:[55.1560,25.0710]},
-  {area:'jlt',name:'Al Barsha 1 Apts',addr:'Al Barsha 1, Dubai',coords:[55.1990,25.1097]},
-  {area:'jlt',name:'Al Barsha Heights',addr:'Tecom, Al Barsha',coords:[55.1880,25.1050]},
-  // Downtown / DIFC
-  {area:'downtown',name:'Burj Vista Tower 1',addr:'Mohammed Bin Rashid Blvd',coords:[55.2780,25.1960]},
-  {area:'downtown',name:'Act One Act Two',addr:'Downtown Dubai',coords:[55.2760,25.1940]},
-  {area:'downtown',name:'Boulevard Point',addr:'Downtown Dubai',coords:[55.2744,25.1972]},
-  {area:'downtown',name:'Index Tower',addr:'Financial Centre Rd, DIFC',coords:[55.2796,25.2120]},
-  {area:'downtown',name:'Central Park Towers',addr:'DIFC, Dubai',coords:[55.2810,25.2110]},
-  // Dubai Marina
-  {area:'marina',name:'Princess Tower',addr:'Marina Walk, Dubai Marina',coords:[55.1397,25.0762]},
-  {area:'marina',name:'Cayan Tower',addr:'Al Marsa Street, Marina',coords:[55.1340,25.0810]},
-  {area:'marina',name:'Sulafa Tower',addr:'Dubai Marina',coords:[55.1380,25.0790]},
-  {area:'marina',name:'Marina Crown Tower',addr:'Al Gharbi St, Marina',coords:[55.1410,25.0780]},
-  {area:'marina',name:'Le Reve Tower',addr:'Dubai Marina',coords:[55.1360,25.0800]},
-  // Studio City
-  {area:'studio',name:'Glitz Residence 1',addr:'Studio City Blvd',coords:[55.1570,25.0940]},
-  {area:'studio',name:'Glitz Residence 2',addr:'Studio City Blvd',coords:[55.1580,25.0930]},
-  {area:'studio',name:'Hera Tower',addr:'Hessa Street, Studio City',coords:[55.1590,25.0960]},
-  {area:'studio',name:'Elite Sports Res 1',addr:'Mohammed Bin Zayed Rd',coords:[55.1600,25.0920]},
-  {area:'studio',name:'Studio One Apts',addr:'Studio City Roundabout',coords:[55.1610,25.0950]}
+  // Al Barsha / Mall of Emirates
+  {area:'barsha',name:'Al Barsha 1 Residence',addr:'Al Barsha 1, Dubai',coords:[55.1990,25.1097]},
+  {area:'barsha',name:'Al Barsha Heights Apts',addr:'Tecom, Al Barsha',coords:[55.1880,25.1050]},
+  {area:'barsha',name:'Mazaya Business Ave BB1',addr:'Al Barsha, Dubai',coords:[55.1560,25.0710]},
+  {area:'barsha',name:'Al Barsha 2 Villas',addr:'Al Barsha 2, Dubai',coords:[55.2050,25.1020]},
+  {area:'barsha',name:'Al Barsha 3 Apts',addr:'Al Barsha 3, Dubai',coords:[55.2100,25.0980]},
+  // Business Bay / DIFC
+  {area:'difc',name:'Executive Tower A',addr:'Business Bay, Dubai',coords:[55.2850,25.1850]},
+  {area:'difc',name:'Index Tower',addr:'Financial Centre Rd, DIFC',coords:[55.2796,25.2120]},
+  {area:'difc',name:'Central Park Towers',addr:'DIFC, Dubai',coords:[55.2810,25.2110]},
+  {area:'difc',name:'The Oberoi Business Bay',addr:'Business Bay, Dubai',coords:[55.2870,25.1870]},
+  {area:'difc',name:'Gate Village Tower 3',addr:'Gate Village, DIFC',coords:[55.2820,25.2100]}
 ];
 
 function renderStopPicker(){

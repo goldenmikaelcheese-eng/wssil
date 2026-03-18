@@ -517,7 +517,7 @@ async function fetchRoute(from,to){
 
 function startAnim(){
   if(animInt)clearInterval(animInt);animIdx=0;
-  animInt=setInterval(()=>{if(animIdx>=routeCoords.length){clearInterval(animInt);return;}const pos=routeCoords[animIdx];driverMarker.setLngLat(pos);drvMap.easeTo({center:pos,zoom:17,duration:500,essential:true});animIdx+=1},700);
+  animInt=setInterval(()=>{if(animIdx>=routeCoords.length){clearInterval(animInt);return;}const pos=routeCoords[animIdx];driverMarker.setLngLat(pos);drvMap.setCenter(pos);animIdx+=1},1200);
 }
 function navigateToStop(){
   showToast('🗺 Route loaded — follow the green line!');

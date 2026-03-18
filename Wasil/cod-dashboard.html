@@ -511,7 +511,6 @@ async function fetchRoute(from,to){
     }
     const dur=Math.round(route.duration/60),dist=(route.distance/1000).toFixed(1);
     document.getElementById('stop-addr').textContent=`${S.customers[S.currentStopIdx].area} · ${dur} min · ${dist} km`;
-    drvMap.flyTo({center:routeCoords[0],zoom:17,speed:0.8});
     startAnim();
   }catch(e){console.log('Route error',e)}
 }
@@ -522,10 +521,8 @@ function startAnim(){
 }
 function navigateToStop(){
   showToast('🗺 Route loaded — follow the green line!');
-  if(routeCoords.length>0){
-    drvMap.flyTo({center:routeCoords[0],zoom:16,speed:1.2});
-    startAnim();
-  } else fetchRoute(DRIVER_POS,STOPS[0]);
+  if(routeCoords.length>0){startAnim()}
+  else fetchRoute(DRIVER_POS,STOPS[0]);
 }
 
 function openRefuseModal(){

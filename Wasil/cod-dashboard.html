@@ -511,17 +511,14 @@ async function fetchRoute(from,to){
     }
     const dur=Math.round(route.duration/60),dist=(route.distance/1000).toFixed(1);
     document.getElementById('stop-addr').textContent=`${S.customers[S.currentStopIdx].area} · ${dur} min · ${dist} km`;
-    drvMap.fitBounds(
-      routeCoords.reduce((b,c)=>b.extend(c),new mapboxgl.LngLatBounds(routeCoords[0],routeCoords[0])),
-      {padding:50, maxZoom:17}
-    );
+    drvMap.flyTo({center:routeCoords[0],zoom:17,speed:0.8});
     startAnim();
   }catch(e){console.log('Route error',e)}
 }
 
 function startAnim(){
   if(animInt)clearInterval(animInt);animIdx=0;
-  animInt=setInterval(()=>{if(animIdx>=routeCoords.length){clearInterval(animInt);return}driverMarker.setLngLat(routeCoords[animIdx]);animIdx+=1},600);
+  animInt=setInterval(()=>{if(animIdx>=routeCoords.length){clearInterval(animInt);return;}const pos=routeCoords[animIdx];driverMarker.setLngLat(pos);drvMap.easeTo({center:pos,zoom:17,duration:500,essential:true});animIdx+=1},700);
 }
 function navigateToStop(){
   showToast('🗺 Route loaded — follow the green line!');

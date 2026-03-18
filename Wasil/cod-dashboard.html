@@ -504,11 +504,10 @@ async function fetchRoute(from,to){
     if(!data.routes||!data.routes.length)return;
     const route=data.routes[0];
     routeCoords=route.geometry.coordinates;
-    if(drvMap.getSource('route')){drvMap.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}})}
-    else{
-      drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
-      drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':4,'line-opacity':.85}});
-    }
+    if(drvMap.getLayer('route')) drvMap.removeLayer('route');
+    if(drvMap.getSource('route')) drvMap.removeSource('route');
+    drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
+    drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':5,'line-opacity':1}});
     const dur=Math.round(route.duration/60),dist=(route.distance/1000).toFixed(1);
     document.getElementById('stop-addr').textContent=`${S.customers[S.currentStopIdx].area} · ${dur} min · ${dist} km`;
     startAnim();

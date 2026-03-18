@@ -862,17 +862,18 @@ function renderStopPicker(){
   const list=filter==='all'?LOCATIONS:LOCATIONS.filter(l=>l.area===filter);
   const d=RB.drivers.find(x=>x.id===RB.selectedId);
   const addedNames=d?d.stops.map(s=>s.name):[];
-  document.getElementById('stop-picker').innerHTML=list.map(l=>{
+  document.getElementById('stop-picker').innerHTML=list.map((l,idx)=>{
     const added=addedNames.includes(l.name);
-    return`<div onclick="${added?'':('pickStop(''+l.name+'')')}" style="padding:7px 9px;border-radius:var(--rs);border:1px solid ${added?'var(--green)':'var(--bo)'};background:${added?'var(--gl)':'var(--sf2)'};cursor:${added?'default':'pointer'};transition:all .15s;">
+    const clickFn = added ? '' : `pickStop(${idx})`;
+    return`<div onclick="${clickFn}" style="padding:7px 9px;border-radius:var(--rs);border:1px solid ${added?'var(--green)':'var(--bo)'};background:${added?'var(--gl)':'var(--sf2)'};cursor:${added?'default':'pointer'};transition:all .15s;">
       <div style="font-size:12px;font-weight:600;color:${added?'var(--gd)':'var(--tx)'};">${added?'✓ ':''} ${l.name}</div>
       <div style="font-size:10px;color:var(--tx3);">${l.addr}</div>
     </div>`;
   }).join('');
 }
 
-function pickStop(name){
-  const loc=LOCATIONS.find(l=>l.name===name);
+function pickStop(idx){
+  const loc=LOCATIONS[idx];
   const d=RB.drivers.find(x=>x.id===RB.selectedId);
   if(!d||!loc)return;
   if(d.stops.find(s=>s.name===loc.name)){showToast('Already added!');return;}

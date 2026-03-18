@@ -506,26 +506,37 @@ async function fetchRoute(from,to){
     routeCoords=route.geometry.coordinates;
     const dur=Math.round(route.duration/60),dist=(route.distance/1000).toFixed(1);
     document.getElementById('stop-addr').textContent=`${S.customers[S.currentStopIdx].area} · ${dur} min · ${dist} km`;
-    if(drvMap.getSource('route')){
-      drvMap.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}});
-    } else {
+    // Add source once, just update data after that
+    if(!drvMap.getSource('route')){
       drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
       drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':5,'line-opacity':1}});
+    } else {
+      drvMap.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}});
     }
     startAnim();
   }catch(e){console.log('Route error',e)}
 }
 
 function startAnim(){
-  if(animInt)clearInterval(animInt);
+  if(animInt)cancelAnimationFrame(animInt);
   animIdx=0;
-  animInt=setInterval(()=>{
-    if(animIdx>=routeCoords.length){clearInterval(animInt);animInt=null;return;}
-    const pos=routeCoords[animIdx];
-    driverMarker.setLngLat(pos);
-    drvMap.easeTo({center:pos,duration:1100,essential:true});
-    animIdx+=1;
-  },1200);
+  // Use requestAnimationFrame for buttery smooth movement
+  let last=0;
+  const STEP_MS=2000; // move to next point every 2 seconds
+  function frame(ts){
+    if(!last)last=ts;
+    if(ts-last>=STEP_MS){
+      last=ts;
+      if(animIdx>=routeCoords.length){animInt=null;return;}
+      const pos=routeCoords[animIdx];
+      driverMarker.setLngLat(pos);
+      // smooth camera pan - no zoom change at all
+      drvMap.panTo(pos,{duration:1800,easing:t=>t*(2-t)});
+      animIdx+=1;
+    }
+    animInt=requestAnimationFrame(frame);
+  }
+  animInt=requestAnimationFrame(frame);
 }
 function navigateToStop(){
   showToast('🗺 Route loaded — follow the green line!');

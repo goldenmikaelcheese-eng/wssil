@@ -384,7 +384,7 @@ const STOPS=[[55.1490,25.0745],[55.1990,25.1097],[55.2423,25.0510]];
 let refuseId=null;
 
 function isNight(){const h=new Date().getHours();return h>=19||h<6}
-function mapStyle(n){return n?'mapbox://styles/mapbox/dark-v11':'mapbox://styles/mapbox/streets-v12'}
+function mapStyle(n){return n?'mapbox://styles/mapbox/dark-v11':'mapbox://styles/mapbox/light-v11'}
 function applyTheme(n){
   document.body.classList.toggle('night',n);
   document.getElementById('themeBtn').textContent=n?'🌙':'🌤️';

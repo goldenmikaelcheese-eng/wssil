@@ -495,8 +495,16 @@ function initDriverMap(){
   dest.textContent='📍';
   new mapboxgl.Marker(dest).setLngLat(STOPS[0]).addTo(drvMap);
   drvMap.on('load',()=>fetchRoute(DRIVER_POS,STOPS[0]));
+  drvMap.on('styledata',()=>drawRouteLine());
 }
 
+function drawRouteLine(){
+  if(!routeCoords.length||!drvMap.isStyleLoaded())return;
+  if(drvMap.getLayer('route'))drvMap.removeLayer('route');
+  if(drvMap.getSource('route'))drvMap.removeSource('route');
+  drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
+  drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':6,'line-opacity':1}});
+}
 async function fetchRoute(from,to){
   try{
     const res=await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${from[0]},${from[1]};${to[0]},${to[1]}?geometries=geojson&steps=true&access_token=${TOKEN}`);
@@ -504,10 +512,7 @@ async function fetchRoute(from,to){
     if(!data.routes||!data.routes.length)return;
     const route=data.routes[0];
     routeCoords=route.geometry.coordinates;
-    if(drvMap.getLayer('route')) drvMap.removeLayer('route');
-    if(drvMap.getSource('route')) drvMap.removeSource('route');
-    drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
-    drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':5,'line-opacity':1}});
+    drawRouteLine();
     const dur=Math.round(route.duration/60),dist=(route.distance/1000).toFixed(1);
     document.getElementById('stop-addr').textContent=`${S.customers[S.currentStopIdx].area} · ${dur} min · ${dist} km`;
     startAnim();

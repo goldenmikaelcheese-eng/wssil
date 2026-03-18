@@ -574,9 +574,9 @@ function nextStop(){
   document.getElementById('stop-amount').textContent='AED '+c.amount.toLocaleString();
   document.getElementById('risk-banner').style.display=risk?'flex':'none';
   if(risk)document.getElementById('risk-text').innerHTML=`${c.name} has refused <strong>${c.refusals} times</strong>. Call before going.`;
-  if(drvMap&&STOPS[S.currentStopIdx-2]){
+  if(drvMap){
     const from=routeCoords.length>0?routeCoords[routeCoords.length-1]:DRIVER_POS;
-    fetchRoute(from,STOPS[Math.min(S.currentStopIdx-2,STOPS.length-1)]);
+    const stopIdx=Math.min(S.currentStopIdx,STOPS.length-1);fetchRoute(from,STOPS[stopIdx]);
   }
 }
 function callCustomer(){showToast('📞 Calling '+S.customers[S.currentStopIdx].phone+'...')}

@@ -480,21 +480,32 @@ function initMainMap(){
 function flyTo(lat,lng){if(mainMap)mainMap.flyTo({center:[lng,lat],zoom:14,speed:1.2})}
 
 function initDriverMap(){
-  drvMap=new mapboxgl.Map({container:'driver-map',style:mapStyle(document.body.classList.contains('night')),center:DRIVER_POS,zoom:16,attributionControl:false});
+  drvMap=new mapboxgl.Map({
+    container:'driver-map',
+    style:mapStyle(document.body.classList.contains('night')),
+    center:DRIVER_POS,
+    zoom:16,
+    attributionControl:false
+  });
   drvMap.addControl(new mapboxgl.NavigationControl(),'top-right');
-  // truck SVG icon
+
   const el=document.createElement('div');
-  el.style.cssText=`width:38px;height:38px;display:flex;align-items:center;justify-content:center;`;
-  el.innerHTML=`<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="19" cy="19" r="19" fill="#1D9E75"/>
-    <text x="19" y="24" text-anchor="middle" font-size="18" fill="white">🚛</text>
-  </svg>`;
+  el.style.cssText='width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:26px;';
+  el.textContent='🚛';
   driverMarker=new mapboxgl.Marker(el).setLngLat(DRIVER_POS).addTo(drvMap);
+
   const dest=document.createElement('div');
-  dest.style.cssText=`width:32px;height:32px;border-radius:50%;background:#EF9F27;color:white;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);`;
+  dest.style.cssText='width:32px;height:32px;border-radius:50%;background:#EF9F27;color:white;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);';
   dest.textContent='📍';
   new mapboxgl.Marker(dest).setLngLat(STOPS[0]).addTo(drvMap);
+
   drvMap.on('load',()=>fetchRoute(DRIVER_POS,STOPS[0]));
+  drvMap.on('style.load',()=>{
+    if(!routeCoords.length)return;
+    if(drvMap.getSource('route'))return;
+    drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
+    drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':5,'line-opacity':1}});
+  });
 }
 
 async function fetchRoute(from,to){
@@ -506,7 +517,6 @@ async function fetchRoute(from,to){
     routeCoords=route.geometry.coordinates;
     const dur=Math.round(route.duration/60),dist=(route.distance/1000).toFixed(1);
     document.getElementById('stop-addr').textContent=`${S.customers[S.currentStopIdx].area} · ${dur} min · ${dist} km`;
-    // Add source once, just update data after that
     if(!drvMap.getSource('route')){
       drvMap.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}}});
       drvMap.addLayer({id:'route',type:'line',source:'route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#1D9E75','line-width':5,'line-opacity':1}});
@@ -514,29 +524,19 @@ async function fetchRoute(from,to){
       drvMap.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}});
     }
     startAnim();
-  }catch(e){console.log('Route error',e)}
+  }catch(e){console.log('Route error:',e)}
 }
 
 function startAnim(){
-  if(animInt)cancelAnimationFrame(animInt);
+  if(animInt){clearInterval(animInt);animInt=null;}
   animIdx=0;
-  // Use requestAnimationFrame for buttery smooth movement
-  let last=0;
-  const STEP_MS=2000; // move to next point every 2 seconds
-  function frame(ts){
-    if(!last)last=ts;
-    if(ts-last>=STEP_MS){
-      last=ts;
-      if(animIdx>=routeCoords.length){animInt=null;return;}
-      const pos=routeCoords[animIdx];
-      driverMarker.setLngLat(pos);
-      // smooth camera pan - no zoom change at all
-      drvMap.panTo(pos,{duration:1800,easing:t=>t*(2-t)});
-      animIdx+=1;
-    }
-    animInt=requestAnimationFrame(frame);
-  }
-  animInt=requestAnimationFrame(frame);
+  animInt=setInterval(()=>{
+    if(animIdx>=routeCoords.length){clearInterval(animInt);animInt=null;return;}
+    const pos=routeCoords[animIdx];
+    driverMarker.setLngLat(pos);
+    drvMap.panTo(pos,{duration:950,essential:true});
+    animIdx++;
+  },1000);
 }
 function navigateToStop(){
   showToast('🗺 Route loaded — follow the green line!');

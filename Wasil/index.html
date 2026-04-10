@@ -1250,41 +1250,61 @@ function stopNav(){
 function switchDrv(v){curDrv=parseInt(v);stopNav();lastDeliveredLng=null;renderPhone(curDrv);}
 
 // ── PHASE 3: REAL GPS ──
-let gpsInterval=null;
+let gpsWatcher=null;
+let gpsSendInterval=null;
 let mgrPollInterval=null;
+let lastGPSPos=null;
 
 function startGPS(){
   if(!navigator.geolocation){showBanner('⚠️ GPS not supported on this device','240,90,68');return;}
   const drvId=DRV[curDrv]?.id;
-  if(!drvId)return;
-  showBanner('📍 GPS activated — sending location live','52,211,153');
-  gpsInterval=setInterval(()=>{
-    navigator.geolocation.getCurrentPosition(async pos=>{
-      const lat=pos.coords.latitude;
-      const lng=pos.coords.longitude;
-      // Update lastDeliveredLng so nav map stays in sync
-      lastDeliveredLng=[lng,lat];
-      try{
-        await fetch(`${SUPABASE_URL}/rest/v1/locations?driver_id=eq.${drvId}`,{
-          method:'PATCH',
-          headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-          body:JSON.stringify({lat,lng,updated_at:new Date().toISOString()})
-        });
-      }catch(e){console.log('GPS update error:',e);}
-    },err=>console.log('GPS error:',err),{enableHighAccuracy:true,timeout:4000});
+  if(!drvId){showBanner('⚠️ Driver not found','240,90,68');return;}
+  // Watch position continuously — much more reliable than setInterval
+  gpsWatcher=navigator.geolocation.watchPosition(
+    pos=>{
+      lastGPSPos={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      lastDeliveredLng=[pos.coords.longitude,pos.coords.latitude];
+      // Update GPS status
+      const btn=document.getElementById('gpsBtn');
+      if(btn)btn.textContent=`🔴 Live · ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+    },
+    err=>{
+      console.log('GPS error:',err);
+      showBanner('⚠️ GPS signal lost — check location permissions','240,90,68');
+    },
+    {enableHighAccuracy:true,timeout:10000,maximumAge:0}
+  );
+  // Send to Supabase every 5 seconds
+  gpsSendInterval=setInterval(async()=>{
+    if(!lastGPSPos)return;
+    try{
+      await fetch(`${SUPABASE_URL}/rest/v1/locations?driver_id=eq.${drvId}`,{
+        method:'PATCH',
+        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({lat:lastGPSPos.lat,lng:lastGPSPos.lng,updated_at:new Date().toISOString()})
+      });
+    }catch(e){console.log('GPS send error:',e);}
   },5000);
+  showBanner('📍 GPS activated — your location is being shared live','52,211,153');
+}
+
+function stopGPS(){
+  if(gpsWatcher!==null){navigator.geolocation.clearWatch(gpsWatcher);gpsWatcher=null;}
+  if(gpsSendInterval){clearInterval(gpsSendInterval);gpsSendInterval=null;}
+  lastGPSPos=null;
+  showBanner('📍 GPS stopped','232,184,75');
 }
 
 function toggleGPS(){
   const btn=document.getElementById('gpsBtn');
-  if(gpsInterval){
+  if(gpsWatcher!==null){
     stopGPS();
     btn.textContent='📍 Start GPS';
     btn.style.background='rgba(52,211,153,0.15)';
     btn.style.color='#34D399';
   } else {
     startGPS();
-    btn.textContent='🔴 GPS On — Live';
+    btn.textContent='🔴 Connecting GPS...';
     btn.style.background='rgba(240,90,68,0.15)';
     btn.style.color='#F05A44';
   }
